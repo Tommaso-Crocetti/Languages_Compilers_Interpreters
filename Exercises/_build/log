@@ -1,0 +1,30 @@
+# C:\Users\tomma\AppData\Local\opam\default\bin\dune.exe build
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location:
+# C:\Users\tomma\AppData\Local\Microsoft\Windows\INetCache\dune\db
+# Workspace root:
+# "C:\\Users\\tomma\\Desktop\\Unipi\\Languages_Compilers_and_Interpreters\\Exercises"
+# Auto-detected concurrency: 8
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_434043_output
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -impl lib/leaves.ml) > _build/default/lib/.Exercises.objs/exercises__Leaves.impl.d
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Exercises.objs/byte -no-alias-deps -opaque -open Exercises -o lib/.Exercises.objs/byte/exercises__Leaves.cmo -c -impl lib/leaves.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Exercises.cma lib/.Exercises.objs/byte/exercises.cmo lib/.Exercises.objs/byte/exercises__Simple_eval.cmo lib/.Exercises.objs/byte/exercises__Poly_tree.cmo lib/.Exercises.objs/byte/exercises__Partial_sums.cmo lib/.Exercises.objs/byte/exercises__Pair_apply.cmo lib/.Exercises.objs/byte/exercises__Pack.cmo lib/.Exercises.objs/byte/exercises__Leaves.cmo lib/.Exercises.objs/byte/exercises__Fsa.cmo lib/.Exercises.objs/byte/exercises__Eval.cmo)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I bin/.main.eobjs/byte -I lib/.Exercises.objs/byte -no-alias-deps -opaque -o bin/.main.eobjs/byte/dune__exe__Main.cmi -c -intf bin/main.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I test/.test_Exercises.eobjs/byte -I lib/.Exercises.objs/byte -no-alias-deps -opaque -o test/.test_Exercises.eobjs/byte/dune__exe__Test_Exercises.cmi -c -intf test/test_Exercises.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I lib/.Exercises.objs/byte -I lib/.Exercises.objs/native -cmi-file lib/.Exercises.objs/byte/exercises__Leaves.cmi -no-alias-deps -opaque -open Exercises -o lib/.Exercises.objs/native/exercises__Leaves.cmx -c -impl lib/leaves.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I bin/.main.eobjs/byte -I bin/.main.eobjs/native -I lib/.Exercises.objs/byte -I lib/.Exercises.objs/native -cmi-file bin/.main.eobjs/byte/dune__exe__Main.cmi -no-alias-deps -opaque -o bin/.main.eobjs/native/dune__exe__Main.cmx -c -impl bin/main.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I test/.test_Exercises.eobjs/byte -I test/.test_Exercises.eobjs/native -I lib/.Exercises.objs/byte -I lib/.Exercises.objs/native -cmi-file test/.test_Exercises.eobjs/byte/dune__exe__Test_Exercises.cmi -no-alias-deps -opaque -o test/.test_Exercises.eobjs/native/dune__exe__Test_Exercises.cmx -c -impl test/test_Exercises.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Exercises.cmxa lib/.Exercises.objs/native/exercises.cmx lib/.Exercises.objs/native/exercises__Simple_eval.cmx lib/.Exercises.objs/native/exercises__Poly_tree.cmx lib/.Exercises.objs/native/exercises__Partial_sums.cmx lib/.Exercises.objs/native/exercises__Pair_apply.cmx lib/.Exercises.objs/native/exercises__Pack.cmx lib/.Exercises.objs/native/exercises__Leaves.cmx lib/.Exercises.objs/native/exercises__Fsa.cmx lib/.Exercises.objs/native/exercises__Eval.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -shared -linkall -I lib -o lib/Exercises.cmxs lib/Exercises.cmxa)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o bin/main.exe lib/Exercises.cmxa bin/.main.eobjs/native/dune__exe__Main.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o test/test_Exercises.exe lib/Exercises.cmxa test/.test_Exercises.eobjs/native/dune__exe__Test_Exercises.cmx)

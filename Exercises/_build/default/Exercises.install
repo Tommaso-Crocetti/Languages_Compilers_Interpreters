@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/Exercises/META"
+  "_build/install/default/lib/Exercises/dune-package"
+  "_build/install/default/lib/Exercises/opam"
+]
+bin: [
+  "_build/install/default/bin/Exercises.exe"
+]

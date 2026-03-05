@@ -1,0 +1,4 @@
+(executable
+ (public_name Mini_tyfun)
+ (name main)
+ (libraries Mini_tyfun))

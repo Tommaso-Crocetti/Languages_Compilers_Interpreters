@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/Mini_fun/META"
+  "_build/install/default/lib/Mini_fun/dune-package"
+  "_build/install/default/lib/Mini_fun/opam"
+]
+bin: [
+  "_build/install/default/bin/Mini_fun.exe"
+]
