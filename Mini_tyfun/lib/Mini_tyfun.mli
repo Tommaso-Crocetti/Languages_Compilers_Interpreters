@@ -8,7 +8,7 @@ type term
     
 type fun_type
 
-type env = fun_type SMap.t
+type context = fun_type SMap.t
 
 val plus: op
 val minus: op

@@ -8,13 +8,11 @@ end
 module SMap = Map.Make(VarOrd)
 
 type fun_type =
-| IntT
-| BoolT
-| ArrowT of fun_type * fun_type
-| UnknownT
+  | IntT
+  | BoolT
+  | ArrowT of fun_type * fun_type
 
 type context = fun_type SMap.t
-type env = context
 
 type op =
   | Plus
@@ -52,7 +50,7 @@ let op o t1 t2 = Op (o, t1, t2)
 let not_ t = Not t
 let if_ c t e = If (c, t, e)
 let let_ x v b = Let (x, v, b)
-let letfun f x param_type body b = LetFun (f, x, param_type, body, b)
+let letfun f x fun_type body b = LetFun (f, x, fun_type, body, b)
 
 let rec typecheck (t: term) (g: context): fun_type option =
   match t with
@@ -86,11 +84,10 @@ let rec typecheck (t: term) (g: context): fun_type option =
     (match typecheck v g with
      | Some v_type -> typecheck b (SMap.add x v_type g)
      | None -> None)
-  | LetFun (f, x, param_type, body, b) ->
-    let fun_type = ArrowT (param_type, UnknownT) in
-    let extended_g = SMap.add f fun_type (SMap.add x param_type g) in
-    (match typecheck body extended_g with
-     | Some body_type ->
-        let resolved_fun_type = ArrowT (param_type, body_type) in
-        typecheck b (SMap.add f resolved_fun_type g)
-     | None -> None)
+  | LetFun (f, x, fun_type, body, b) ->
+    let param_type, return_type = match fun_type with
+      | ArrowT (input_type, output_type) -> (input_type, output_type)
+      | _ -> failwith "Expected a function type for LetFun" in
+    match typecheck body (SMap.add x param_type (SMap.add f fun_type g)) with
+    | Some body_type when body_type = return_type -> typecheck b (SMap.add f fun_type g)
+    | _ -> None
