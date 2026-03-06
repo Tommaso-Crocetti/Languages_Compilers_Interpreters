@@ -46,22 +46,22 @@ let minor = Minor
 let int_ n = Int n
 let bool_ b = Bool b
 let var x = Var x
-let fun_ x funtype body = Fun (x, funtype, body)
+let fun_ x param_type body = Fun (x, param_type, body)
 let app f arg = App (f, arg)
 let op o t1 t2 = Op (o, t1, t2)
 let not_ t = Not t
 let if_ c t e = If (c, t, e)
 let let_ x v b = Let (x, v, b)
-let letfun f x funtype body b = LetFun (f, x, funtype, body, b)
+let letfun f x param_type body b = LetFun (f, x, param_type, body, b)
 
 let rec typecheck (t: term) (g: context): fun_type option =
   match t with
   | Int n -> Some (IntT)
   | Bool b -> Some (BoolT)
   | Var x -> SMap.find_opt x g
-  | Fun (x, funtype, body) -> 
-    (match typecheck body (SMap.add x funtype g) with
-     | Some body_type -> Some (ArrowT (funtype, body_type))
+  | Fun (x, param_type, body) -> 
+    (match typecheck body (SMap.add x param_type g) with
+     | Some body_type -> Some (ArrowT (param_type, body_type))
      | None -> None)
   | App (f, arg) ->
     (match typecheck f g, typecheck arg g with

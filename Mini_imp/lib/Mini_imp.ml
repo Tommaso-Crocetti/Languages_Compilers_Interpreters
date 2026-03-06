@@ -16,7 +16,6 @@ type a_exp =
   | Plus of a_exp * a_exp
   | Minus of a_exp * a_exp
   | Times of a_exp * a_exp
-
 and b_exp =
   | Bval of bool
   | And of b_exp * b_exp
@@ -86,15 +85,15 @@ and eval_b (b: b_exp) (s:state) : bool =
 let rec eval_c (c: command) (s: state): state = 
   match c with
    | Skip -> s
-   | Assign (x, a) -> SMap.add x (eval_a a s) s   
+   | Assign (x, a) -> SMap.add x (eval_a a s) s  
    | Seq (c1, c2) -> eval_c c2 (eval_c c1 s)
    | If (b, c1, c2) -> if eval_b b s then eval_c c1 s else eval_c c2 s
    | While (b, c) -> if eval_b b s then eval_c (While (b, c)) (eval_c c s) else s
 
   let execute (p: program) (n: int): int =
-    let c = p.body in
+    let command = p.body in
     let initial_state = SMap.add p.input n SMap.empty in
-    let final_state = eval_c c initial_state in
+    let final_state = eval_c command initial_state in
     match SMap.find_opt p.output final_state with
     | Some v -> v
     | None -> failwith ("Output variable " ^ p.output ^ " not found in final state.")
