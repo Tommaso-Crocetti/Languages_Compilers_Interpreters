@@ -1,2 +1,7 @@
+(menhir
+ (modules Mini_imp_Parser))
+
+(ocamllex Mini_imp_Lexer)
+
 (library
- (name Mini_imp))
+ (name Mini_imp_Lib))

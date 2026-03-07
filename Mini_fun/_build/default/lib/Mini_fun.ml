@@ -33,7 +33,6 @@ type runtime_value =
   | RecClosureV of var * var * term * env
 and env = runtime_value SMap.t
 
-
 let plus = Plus
 let minus = Minus 
 let times = Times
@@ -52,14 +51,6 @@ let not_ t = Not t
 let if_ c t e = If (c, t, e)
 let let_ x v b = Let (x, v, b)
 let letfun f x body b = LetFun (f, x, body, b)
-
-type program =    
-  {
-    name: string;
-    input: var;
-    output: var;
-    body: term;
-  }
 
 let rec eval_t (t: term) (env: env) : runtime_value =
   match t with

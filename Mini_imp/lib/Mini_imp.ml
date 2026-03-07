@@ -32,13 +32,10 @@ type command =
 
 type program =    
   {
-    name: string;
     input: var;
     output: var;
     body: command;
   }
-
-(* smart constructors to avoid exposing concrete constructors *)
 
 let aval n = Aval n
 let var x = Var x
@@ -59,8 +56,8 @@ let seq c1 c2 = Seq (c1, c2)
 let if_ b c1 c2 = If (b, c1, c2)
 let while_ b c = While (b, c)
 
-let make_program name input output body =
-  { name; input; output; body }
+let make_program input output body =
+  { input; output; body }
 
 let rec eval_a (a:a_exp) (s:state) : int =
   match a with

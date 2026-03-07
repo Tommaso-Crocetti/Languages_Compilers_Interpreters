@@ -15,4 +15,8 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_181d67_output
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_41bcd9_output
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I test/.test_Mini_fun.eobjs/byte -I test/.test_Mini_fun.eobjs/native -I lib/.Mini_fun.objs/byte -I lib/.Mini_fun.objs/native -cmi-file test/.test_Mini_fun.eobjs/byte/dune__exe__Test_Mini_fun.cmi -no-alias-deps -opaque -o test/.test_Mini_fun.eobjs/native/dune__exe__Test_Mini_fun.cmx -c -impl test/test_Mini_fun.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o test/test_Mini_fun.exe lib/Mini_fun.cmxa test/.test_Mini_fun.eobjs/native/dune__exe__Test_Mini_fun.cmx)
+$ (cd _build/default/test && .\test_Mini_fun.exe)
+> -2

@@ -15,21 +15,21 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_b3899d_output
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_tyfun.objs/byte -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun.cmi -no-alias-deps -opaque -o lib/.Mini_tyfun.objs/byte/mini_tyfun.cmo -c -impl lib/Mini_tyfun.ml)
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Mini_tyfun.cma lib/.Mini_tyfun.objs/byte/mini_tyfun.cmo)
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_2d15b5_output
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -intf lib/Mini_tyfun.mli) > _build/default/lib/.Mini_tyfun.objs/mini_tyfun.intf.d
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -intf lib/Mini_fun.mli) > _build/default/lib/.Mini_tyfun.objs/mini_tyfun__Mini_fun.intf.d
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_tyfun.objs/byte -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/byte/mini_tyfun__Mini_fun.cmi -c -intf lib/Mini_fun.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_tyfun.objs/byte -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun__Mini_fun.cmi -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/byte/mini_tyfun__Mini_fun.cmo -c -impl lib/Mini_fun.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_tyfun.objs/byte -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/byte/mini_tyfun.cmi -c -intf lib/Mini_tyfun.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I bin/.main.eobjs/byte -I lib/.Mini_tyfun.objs/byte -no-alias-deps -opaque -o bin/.main.eobjs/byte/dune__exe__Main.cmi -c -intf bin/main.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I test/.test_Mini_tyfun.eobjs/byte -I lib/.Mini_tyfun.objs/byte -no-alias-deps -opaque -o test/.test_Mini_tyfun.eobjs/byte/dune__exe__Test_Mini_tyfun.cmi -c -intf test/test_Mini_tyfun.mli)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I lib/.Mini_tyfun.objs/byte -I lib/.Mini_tyfun.objs/native -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun__Mini_fun.cmi -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/native/mini_tyfun__Mini_fun.cmx -c -impl lib/Mini_fun.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_tyfun.objs/byte -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun.cmi -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/byte/mini_tyfun.cmo -c -impl lib/Mini_tyfun.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Mini_tyfun.cma lib/.Mini_tyfun.objs/byte/mini_tyfun__.cmo lib/.Mini_tyfun.objs/byte/mini_tyfun__Mini_fun.cmo lib/.Mini_tyfun.objs/byte/mini_tyfun.cmo)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I lib/.Mini_tyfun.objs/byte -I lib/.Mini_tyfun.objs/native -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun.cmi -no-alias-deps -opaque -open Mini_tyfun__ -o lib/.Mini_tyfun.objs/native/mini_tyfun.cmx -c -impl lib/Mini_tyfun.ml)
 $ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I bin/.main.eobjs/byte -I bin/.main.eobjs/native -I lib/.Mini_tyfun.objs/byte -I lib/.Mini_tyfun.objs/native -cmi-file bin/.main.eobjs/byte/dune__exe__Main.cmi -no-alias-deps -opaque -o bin/.main.eobjs/native/dune__exe__Main.cmx -c -impl bin/main.ml)
->       0 [main] x86_64-w64-mingw32-gcc (18988) C:\Users\tomma\AppData\Local\opam\.cygwin\root\bin\x86_64-w64-mingw32-gcc.exe: *** fatal error - couldn't create signal pipe, Win32 error 5
-> File "bin/main.ml", line 1:
-> Error: Assembler error, input left in file C:\Users\tomma\AppData\Local\Temp\camlasm1d6931.s
-[2]
 $ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I test/.test_Mini_tyfun.eobjs/byte -I test/.test_Mini_tyfun.eobjs/native -I lib/.Mini_tyfun.objs/byte -I lib/.Mini_tyfun.objs/native -cmi-file test/.test_Mini_tyfun.eobjs/byte/dune__exe__Test_Mini_tyfun.cmi -no-alias-deps -opaque -o test/.test_Mini_tyfun.eobjs/native/dune__exe__Test_Mini_tyfun.cmx -c -impl test/test_Mini_tyfun.ml)
->       1 [main] x86_64-w64-mingw32-gcc (12252) C:\Users\tomma\AppData\Local\opam\.cygwin\root\bin\x86_64-w64-mingw32-gcc.exe: *** fatal error - CreateFileMapping S-1-5-21-2793204245-2205717284-2978045460-1022.1, Win32 error 5.  Terminating.
-> File "test/test_Mini_tyfun.ml", line 1:
-> Error: Assembler error, input left in file C:\Users\tomma\AppData\Local\Temp\camlasmf04dc7.s
-[2]
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I lib/.Mini_tyfun.objs/byte -I lib/.Mini_tyfun.objs/native -cmi-file lib/.Mini_tyfun.objs/byte/mini_tyfun.cmi -no-alias-deps -opaque -o lib/.Mini_tyfun.objs/native/mini_tyfun.cmx -c -impl lib/Mini_tyfun.ml)
->       0 [main] x86_64-w64-mingw32-gcc (8824) C:\Users\tomma\AppData\Local\opam\.cygwin\root\bin\x86_64-w64-mingw32-gcc.exe: *** fatal error - CreateFileMapping S-1-5-21-2793204245-2205717284-2978045460-1022.1, Win32 error 5.  Terminating.
-> File "lib/Mini_tyfun.ml", line 1:
-> Error: Assembler error, input left in file C:\Users\tomma\AppData\Local\Temp\camlasm918ad7.s
-[2]
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Mini_tyfun.cmxa lib/.Mini_tyfun.objs/native/mini_tyfun__.cmx lib/.Mini_tyfun.objs/native/mini_tyfun__Mini_fun.cmx lib/.Mini_tyfun.objs/native/mini_tyfun.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -shared -linkall -I lib -o lib/Mini_tyfun.cmxs lib/Mini_tyfun.cmxa)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o test/test_Mini_tyfun.exe lib/Mini_tyfun.cmxa test/.test_Mini_tyfun.eobjs/native/dune__exe__Test_Mini_tyfun.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o bin/main.exe lib/Mini_tyfun.cmxa bin/.main.eobjs/native/dune__exe__Main.cmx)

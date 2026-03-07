@@ -7,14 +7,14 @@ type state = int SMap.t
 type a_exp
 type b_exp
 type command
-
+type program
 
 val aval : int -> a_exp
 val var : var -> a_exp
-val of_bool : b_exp -> a_exp
 val plus : a_exp -> a_exp -> a_exp
 val minus : a_exp -> a_exp -> a_exp
 val times : a_exp -> a_exp -> a_exp
+val of_bool : b_exp -> a_exp
 
 val bval : bool -> b_exp
 val and_ : b_exp -> b_exp -> b_exp
@@ -28,8 +28,7 @@ val seq : command -> command -> command
 val if_ : b_exp -> command -> command -> command
 val while_ : b_exp -> command -> command
 
-type program
-val make_program : string -> var -> var -> command -> program
+val make_program : var -> var -> command -> program
 
 val eval_a : a_exp -> state -> int
 val eval_b : b_exp -> state -> bool

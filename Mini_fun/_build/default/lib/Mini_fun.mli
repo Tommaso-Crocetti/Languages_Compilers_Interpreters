@@ -3,8 +3,7 @@ type var = string
 module SMap : Map.S with type key = var
 
 type op
-
-type term
+and term
     
 type runtime_value = 
     | IntV of int

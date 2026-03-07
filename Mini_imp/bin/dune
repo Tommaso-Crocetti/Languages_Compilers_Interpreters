@@ -1,4 +1,4 @@
 (executable
  (public_name Mini_imp)
  (name main)
- (libraries Mini_imp))
+ (libraries Mini_imp_Lib))

@@ -1,4 +1,4 @@
-# C:\Users\tomma\AppData\Local\opam\default\bin\dune.exe runtest
+# C:\Users\tomma\AppData\Local\opam\default\bin\dune.exe exec Mini_imp prova.miniimp
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
 # Shared cache location:
@@ -15,7 +15,4 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_3555fb_output
-$ (cd _build/default/test && .\test_Mini_imp.exe)
-> Fatal error: exception Failure("Variable y not found in state.")
-[2]
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_b6249d_output

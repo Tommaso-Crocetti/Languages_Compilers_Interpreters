@@ -15,11 +15,13 @@
 
 (documentation https://url/to/documentation)
 
+(using menhir 2.1)
+
 (package
  (name Mini_imp)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml)
+ (depends ocaml dune ocamllex menhir)
  (tags
   ("add topics" "to describe" your project)))
 

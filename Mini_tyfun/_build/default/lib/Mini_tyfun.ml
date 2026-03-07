@@ -1,3 +1,5 @@
+open Mini_fun
+
 type var = string
 
 module VarOrd : Map.OrderedType with type t = var = struct
@@ -8,15 +10,13 @@ end
 module SMap = Map.Make(VarOrd)
 
 type fun_type =
-| IntT
-| BoolT
-| ArrowT of fun_type * fun_type
-| UnknownT of fun_type option ref
+  | IntT
+  | BoolT
+  | ArrowT of fun_type * fun_type
 
 type context = fun_type SMap.t
-type env = context
 
-type op = 
+type op =
   | Plus
   | Minus
   | Times
@@ -46,108 +46,79 @@ let minor = Minor
 let int_ n = Int n
 let bool_ b = Bool b
 let var x = Var x
-let fun_ x funtype body = Fun (x, funtype, body)
+let fun_ x param_type body = Fun (x, param_type, body)
 let app f arg = App (f, arg)
 let op o t1 t2 = Op (o, t1, t2)
 let not_ t = Not t
 let if_ c t e = If (c, t, e)
 let let_ x v b = Let (x, v, b)
-let letfun f x funtype body b = LetFun (f, x, funtype, body, b)
+let letfun f x fun_type body b = LetFun (f, x, fun_type, body, b)
 
-let fresh_unknown () = UnknownT (ref None)
-
-let rec resolve_type t =
-  match t with
-  | IntT -> IntT
-  | BoolT -> BoolT
-  | ArrowT (param, ret) -> ArrowT (resolve_type param, resolve_type ret)
-  | UnknownT r ->
-      (match !r with
-       | Some t' ->
-           let resolved = resolve_type t' in
-           r := Some resolved;
-           resolved
-       | None -> t)
-
-let rec unify_types t1 t2 =
-  let t1 = resolve_type t1 in
-  let t2 = resolve_type t2 in
-  match t1, t2 with
-  | IntT, IntT -> Some IntT
-  | BoolT, BoolT -> Some BoolT
-  | ArrowT (p1, r1), ArrowT (p2, r2) ->
-      (match unify_types p1 p2, unify_types r1 r2 with
-       | Some _, Some _ -> Some (ArrowT (resolve_type p1, resolve_type r1))
-       | _ -> None)
-  | UnknownT r, t
-  | t, UnknownT r ->
-      (match !r with
-       | Some existing -> unify_types existing t
-       | None ->
-           r := Some t;
-           Some t)
-  | _ -> None
-
-let types_compatible t1 t2 =
-  match unify_types t1 t2 with
-  | Some _ -> true
-  | None -> false
-
-let rec typecheck (t: term) (g: context): fun_type option =
+let rec term_type_check (t: term) (g: context): fun_type option =
   match t with
   | Int n -> Some (IntT)
   | Bool b -> Some (BoolT)
   | Var x -> SMap.find_opt x g
-  | Fun (x, funtype, body) -> 
-    (match typecheck body (SMap.add x funtype g) with
-     | Some body_type -> Some (ArrowT (funtype, body_type))
+  | Fun (x, param_type, body) -> 
+    (match term_type_check body (SMap.add x param_type g) with
+     | Some body_type -> Some (ArrowT (param_type, body_type))
      | None -> None)
   | App (f, arg) ->
-    (match typecheck f g, typecheck arg g with
-     | Some (ArrowT (param_type, return_type)), Some arg_type when types_compatible param_type arg_type ->
+    (match term_type_check f g, term_type_check arg g with
+     | Some (ArrowT (param_type, return_type)), Some arg_type when param_type = arg_type ->
         Some return_type
      | _ -> None)
   | Op (o, t1, t2) ->
-    (match typecheck t1 g, typecheck t2 g with
-     | Some ty1, Some ty2 when (o = Plus || o = Minus || o = Times) && types_compatible ty1 IntT && types_compatible ty2 IntT ->
-        Some IntT
-     | Some ty1, Some ty2 when (o = And || o = Or) && types_compatible ty1 BoolT && types_compatible ty2 BoolT ->
-        Some BoolT
-     | Some ty1, Some ty2 when o = Minor && types_compatible ty1 IntT && types_compatible ty2 IntT ->
-        Some BoolT
-     | _ -> None)
+    (match term_type_check t1 g, term_type_check t2 g with
+        | Some IntT, Some IntT when o = Plus || o = Minus || o = Times -> Some IntT
+        | Some BoolT, Some BoolT when o = And || o = Or -> Some BoolT
+        | Some IntT, Some IntT when o = Minor -> Some BoolT
+        | _ -> None)        
   | Not t ->
-    (match typecheck t g with
-     | Some ty when types_compatible ty BoolT -> Some BoolT
+    (match term_type_check t g with
+     | Some BoolT -> Some BoolT
      | _ -> None)
   | If (c, t, e) ->
-    (match typecheck c g, typecheck t g, typecheck e g with
-     | Some cond_type, Some t_type, Some e_type
-       when types_compatible cond_type BoolT && types_compatible t_type e_type ->
-         Some (resolve_type t_type)
+    (match term_type_check c g, term_type_check t g, term_type_check e g with
+     | Some cond_type, Some t_type, Some e_type when cond_type = BoolT && t_type = e_type -> Some t_type
      | _ -> None)
   | Let (x, v, b) ->
-    (match typecheck v g with
-     | Some v_type -> typecheck b (SMap.add x v_type g)
+    (match term_type_check v g with
+     | Some v_type -> term_type_check b (SMap.add x v_type g)
      | None -> None)
-  | LetFun (f, x, param_type, body, b) ->
-    let return_placeholder = fresh_unknown () in
-    let fun_type = ArrowT (param_type, return_placeholder) in
-    let env_with_fun = SMap.add f fun_type g in
-    (match typecheck body (SMap.add x param_type env_with_fun) with
-     | Some body_type when types_compatible return_placeholder body_type ->
-         let resolved_return = resolve_type return_placeholder in
-         (match resolved_return with
-          | UnknownT _ -> None
-          | _ ->
-              let resolved_fun = ArrowT (resolve_type param_type, resolved_return) in
-              typecheck b (SMap.add f resolved_fun g))
-     | _ -> None)
-let typecheck_term (t: term): fun_type option =
-  match typecheck t SMap.empty with
-  | Some ty ->
-      let resolved = resolve_type ty in
-      (match resolved with
-       | UnknownT _ -> None
-       | _ -> Some resolved)
-  | None -> None
+  | LetFun (f, x, fun_type, body, b) ->
+    let param_type, return_type = match fun_type with
+      | ArrowT (input_type, output_type) -> (input_type, output_type)
+      | _ -> failwith "Expected a function type for LetFun" in
+    match term_type_check body (SMap.add x param_type (SMap.add f fun_type g)) with
+    | Some body_type when body_type = return_type -> term_type_check b (SMap.add f fun_type g)
+    | _ -> None
+
+let type_check (t: term): fun_type option =
+  term_type_check t SMap.empty
+
+let rec drop_types (t: term): Mini_fun.term =
+    let cast_op o =
+      match o with
+      | Plus -> Mini_fun.plus
+      | Minus -> Mini_fun.minus
+      | Times -> Mini_fun.times
+      | And -> Mini_fun.and_
+      | Or -> Mini_fun.or_
+      | Minor -> Mini_fun.minor 
+    in match t with
+  | Int n -> Mini_fun.int_ n
+  | Bool b -> Mini_fun.bool_ b
+  | Var x -> Mini_fun.var x
+  | Fun (x, _, body) -> Mini_fun.fun_ x (drop_types body)
+  | App (f, arg) -> Mini_fun.app (drop_types f) (drop_types arg)
+  | Op (o, t1, t2) -> (Mini_fun.op (cast_op o) (drop_types t1) (drop_types t2))
+  | Not t -> Mini_fun.not_ (drop_types t)
+  | If (c, t, e) -> Mini_fun.if_ (drop_types c) (drop_types t) (drop_types e)
+  | Let (x, v, b) -> Mini_fun.let_ x (drop_types v) (drop_types b)
+  | LetFun (f, x, _, body, b) -> Mini_fun.letfun f x (drop_types body) (drop_types b)
+
+let compute_ty (t: term): runtime_value =
+    match type_check t with
+    | Some _ -> Mini_fun.compute (drop_types t)
+    | None -> failwith "Type error: term is not well-typed."
