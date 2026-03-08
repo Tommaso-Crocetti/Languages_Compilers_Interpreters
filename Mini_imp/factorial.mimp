@@ -1,0 +1,11 @@
+def main with input x output y as
+    if x < 1 then
+        y := 0
+    else (
+        y := 1;
+        while (not (x < 1)) do (
+            y := y * x;
+            x := x - 1
+        )
+    );
+    skip

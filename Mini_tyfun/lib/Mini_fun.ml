@@ -83,7 +83,7 @@ let rec eval_t (t: term) (env: env) : runtime_value =
      | (Or, BoolV v1, BoolV v2) -> BoolV (v1 || v2)
      | (Minor, IntV n1, IntV n2) -> BoolV (n1 < n2)
      | _ -> failwith "Type error")
-| Not t1 ->
+  | Not t1 ->
     (match eval_t t1 env with
      | BoolV v -> BoolV (not v)
      | _ -> failwith "Type error")
@@ -104,3 +104,8 @@ let rec eval_t (t: term) (env: env) : runtime_value =
 
 let compute (t: term) : runtime_value =
   eval_t t SMap.empty
+
+let extract_int (v: runtime_value) : int =
+  match v with
+  | IntV n -> n
+  | _ -> failwith "Expected an integer value."

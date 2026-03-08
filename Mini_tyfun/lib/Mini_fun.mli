@@ -27,6 +27,7 @@ val if_: term -> term -> term -> term
 val let_: var -> term -> term -> term
 val letfun: var -> var -> term -> term -> term
 
-
 val eval_t: term -> env -> runtime_value
 val compute: term -> runtime_value
+
+val extract_int: runtime_value -> int

@@ -29,8 +29,12 @@ val if_: term -> term -> term -> term
 val let_: var -> term -> term -> term
 val letfun: var -> var -> fun_type -> term -> term -> term
 
-val term_type_check: term -> context -> fun_type option
+val int_type: fun_type
+val bool_type: fun_type
+val arrow: fun_type -> fun_type -> fun_type
+
 val type_check: term -> fun_type option
 
 val drop_types: term -> Mini_fun.term
-val compute_ty: term -> Mini_fun.runtime_value
+
+val execute: term -> int -> int

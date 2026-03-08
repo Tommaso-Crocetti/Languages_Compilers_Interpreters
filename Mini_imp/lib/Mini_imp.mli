@@ -2,7 +2,7 @@ type var = string
 
 module SMap : Map.S with type key = var
 
-type state = int SMap.t
+type state 
 
 type a_exp
 type b_exp

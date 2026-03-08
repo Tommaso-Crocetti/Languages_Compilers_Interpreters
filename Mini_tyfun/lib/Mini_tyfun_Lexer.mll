@@ -1,5 +1,5 @@
 {
-  open Mini_imp_Parser
+  open Mini_tyfun_Parser
   exception Error of string
 }
 
@@ -10,38 +10,35 @@ let white = [' ' '\t' '\n' '\r']+ | "\r\n"
 
 rule read = parse
 
-  | "def" { DEF }
-  | "main" { MAIN }
-  | "with" { WITH }
-  | "input" { INPUT }
-  | "output" { OUTPUT }
-  | "as" { AS }
-
   | "+"  { PLUS }
   | "-"  { MINUS }
   | "*"  { TIMES }
-  | "of bool" { OF_BOOL }
 
   | "and"     { AND }
   | "or"      { OR }
   | "not"     { NOT }
   | "<"  { MINOR }
 
-  | "skip"    { SKIP }
+  | "let"    { LET }
+  | "="      { EQUAL }
+  | "in"     { IN }
 
-  | ":=" { ASSIGN }
+  | "letfun" { LETFUN }
+  | ":" { COLON }
 
-  | ";"  { CONCAT }
-
+  | "fun"   { FUN }
+  | "=>"   { FUN_ARROW }
+  
   | "if"      { IF }
   | "then"    { THEN }
   | "else"    { ELSE }
 
-  | "while"   { WHILE }
-  | "do"      { DO }
-
   | "("  { LPAREN }
   | ")"  { RPAREN }
+
+  | "int" { INT_TYPE }
+  | "bool" { BOOL_TYPE }
+  | "->" { ARROW }
 
   | eof  { EOF }
 

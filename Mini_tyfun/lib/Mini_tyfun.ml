@@ -54,48 +54,53 @@ let if_ c t e = If (c, t, e)
 let let_ x v b = Let (x, v, b)
 let letfun f x fun_type body b = LetFun (f, x, fun_type, body, b)
 
-let rec term_type_check (t: term) (g: context): fun_type option =
-  match t with
-  | Int n -> Some (IntT)
-  | Bool b -> Some (BoolT)
-  | Var x -> SMap.find_opt x g
-  | Fun (x, param_type, body) -> 
-    (match term_type_check body (SMap.add x param_type g) with
-     | Some body_type -> Some (ArrowT (param_type, body_type))
-     | None -> None)
-  | App (f, arg) ->
-    (match term_type_check f g, term_type_check arg g with
-     | Some (ArrowT (param_type, return_type)), Some arg_type when param_type = arg_type ->
-        Some return_type
-     | _ -> None)
-  | Op (o, t1, t2) ->
-    (match term_type_check t1 g, term_type_check t2 g with
-        | Some IntT, Some IntT when o = Plus || o = Minus || o = Times -> Some IntT
-        | Some BoolT, Some BoolT when o = And || o = Or -> Some BoolT
-        | Some IntT, Some IntT when o = Minor -> Some BoolT
-        | _ -> None)        
-  | Not t ->
-    (match term_type_check t g with
-     | Some BoolT -> Some BoolT
-     | _ -> None)
-  | If (c, t, e) ->
-    (match term_type_check c g, term_type_check t g, term_type_check e g with
-     | Some cond_type, Some t_type, Some e_type when cond_type = BoolT && t_type = e_type -> Some t_type
-     | _ -> None)
-  | Let (x, v, b) ->
-    (match term_type_check v g with
-     | Some v_type -> term_type_check b (SMap.add x v_type g)
-     | None -> None)
-  | LetFun (f, x, fun_type, body, b) ->
-    let param_type, return_type = match fun_type with
-      | ArrowT (input_type, output_type) -> (input_type, output_type)
-      | _ -> failwith "Expected a function type for LetFun" in
-    match term_type_check body (SMap.add x param_type (SMap.add f fun_type g)) with
-    | Some body_type when body_type = return_type -> term_type_check b (SMap.add f fun_type g)
-    | _ -> None
+let int_type = IntT
+
+let bool_type = BoolT
+
+let arrow t1 t2 = ArrowT (t1, t2)
 
 let type_check (t: term): fun_type option =
-  term_type_check t SMap.empty
+  let rec term_type_check (t: term) (g: context): fun_type option =
+    match t with
+    | Int n -> Some (IntT)
+    | Bool b -> Some (BoolT)
+    | Var x -> SMap.find_opt x g
+    | Fun (x, param_type, body) -> 
+      (match term_type_check body (SMap.add x param_type g) with
+      | Some body_type -> Some (ArrowT (param_type, body_type))
+      | None -> None)
+    | App (f, arg) ->
+      (match term_type_check f g, term_type_check arg g with
+      | Some (ArrowT (param_type, return_type)), Some arg_type when param_type = arg_type ->
+          Some return_type
+      | _ -> None)
+    | Op (o, t1, t2) ->
+      (match term_type_check t1 g, term_type_check t2 g with
+          | Some IntT, Some IntT when o = Plus || o = Minus || o = Times -> Some IntT
+          | Some BoolT, Some BoolT when o = And || o = Or -> Some BoolT
+          | Some IntT, Some IntT when o = Minor -> Some BoolT
+          | _ -> None)        
+    | Not t ->
+      (match term_type_check t g with
+      | Some BoolT -> Some BoolT
+      | _ -> None)
+    | If (c, t, e) ->
+      (match term_type_check c g, term_type_check t g, term_type_check e g with
+      | Some cond_type, Some t_type, Some e_type when cond_type = BoolT && t_type = e_type -> Some t_type
+      | _ -> None)
+    | Let (x, v, b) ->
+      (match term_type_check v g with
+      | Some v_type -> term_type_check b (SMap.add x v_type g)
+      | None -> None)
+    | LetFun (f, x, fun_type, body, b) ->
+      let param_type, return_type = match fun_type with
+        | ArrowT (input_type, output_type) -> (input_type, output_type)
+        | _ -> failwith "Expected a function type for LetFun" in
+      match term_type_check body (SMap.add x param_type (SMap.add f fun_type g)) with
+      | Some body_type when body_type = return_type -> term_type_check b (SMap.add f fun_type g)
+      | _ -> None
+  in term_type_check t SMap.empty
 
 let rec drop_types (t: term): Mini_fun.term =
     let cast_op o =
@@ -118,7 +123,9 @@ let rec drop_types (t: term): Mini_fun.term =
   | Let (x, v, b) -> Mini_fun.let_ x (drop_types v) (drop_types b)
   | LetFun (f, x, _, body, b) -> Mini_fun.letfun f x (drop_types body) (drop_types b)
 
-let compute_ty (t: term): runtime_value =
-    match type_check t with
-    | Some _ -> Mini_fun.compute (drop_types t)
-    | None -> failwith "Type error: term is not well-typed."
+let execute (t: term) (n: int): int =
+  match type_check t with
+  | Some _ -> (
+    Mini_fun.extract_int (Mini_fun.compute (Mini_fun.app (drop_types t) (Mini_fun.int_ n)))
+  )
+  | None -> failwith "Type error: term is not well-typed."
