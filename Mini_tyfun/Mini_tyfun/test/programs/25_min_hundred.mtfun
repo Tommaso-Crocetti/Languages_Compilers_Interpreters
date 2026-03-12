@@ -1,0 +1,3 @@
+letfun minOf x : int -> int -> int =
+    fun y: int => if x < y then x else y
+in fun n: int => minOf n 100

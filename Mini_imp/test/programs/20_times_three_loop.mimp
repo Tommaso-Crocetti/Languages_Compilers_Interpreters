@@ -1,0 +1,10 @@
+def main with input x output y as
+    y := 0;
+    i := x;
+    if i < 0 then
+        y := 0 - (x * 3)
+    else
+        while 0 < i do (
+            y := y + 3;
+            i := i - 1
+        )

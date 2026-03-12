@@ -1,0 +1,4 @@
+fun x: int =>
+    let notPos = not (x < 1) in
+    if notPos then x * x
+    else 0

@@ -1,0 +1,4 @@
+letfun countdown n : int -> int =
+    if n < 1 then 0
+    else 1 + countdown (n - 1)
+in countdown

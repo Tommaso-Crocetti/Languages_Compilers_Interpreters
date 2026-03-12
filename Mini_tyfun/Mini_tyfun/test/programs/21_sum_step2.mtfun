@@ -1,0 +1,4 @@
+letfun sumStep n : int -> int =
+    if n < 2 then 0
+    else n + sumStep (n - 2)
+in sumStep

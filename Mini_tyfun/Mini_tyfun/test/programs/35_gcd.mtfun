@@ -1,0 +1,8 @@
+letfun gcd a : int -> int -> int =
+    fun b: int =>
+        if b < 1 then a
+        else (
+            if a < b then gcd b a
+            else gcd (a - b) b
+        )
+in fun n: int => gcd n (n - 1)

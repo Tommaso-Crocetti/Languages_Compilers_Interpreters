@@ -1,0 +1,3 @@
+letfun add x : int -> int -> int =
+    fun y: int => x + y
+in fun n: int => add n 10

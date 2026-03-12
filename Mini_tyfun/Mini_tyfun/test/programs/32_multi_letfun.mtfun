@@ -1,0 +1,10 @@
+letfun mul x : int -> int -> int = fun y: int => x * y in
+letfun square x : int -> int = mul x x in
+letfun sumSq n : int -> int =
+    if n < 1 then 0
+    else (square n) + sumSq (n - 1)
+in
+letfun squareOfSum n : int -> int =
+    let s = sumSq n in s * s
+in
+fun x: int => squareOfSum x - sumSq x

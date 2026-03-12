@@ -1,0 +1,3 @@
+letfun apply f : (int -> int) -> int -> int =
+    fun x: int => f x
+in fun n: int => apply (fun x: int => x * x) n

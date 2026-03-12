@@ -1,0 +1,4 @@
+letfun select x : int -> int -> int -> int =
+    fun y: int => fun z: int =>
+        if x < 0 then y else z
+in fun n: int => select n 100 200

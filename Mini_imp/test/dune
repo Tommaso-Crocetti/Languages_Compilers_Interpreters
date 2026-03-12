@@ -1,3 +1,6 @@
 (test
  (name test_Mini_imp)
- (libraries Mini_imp_Lib))
+ (libraries Mini_imp_Lib)
+ (deps
+	(universe)
+	(glob_files programs/*.mimp)))

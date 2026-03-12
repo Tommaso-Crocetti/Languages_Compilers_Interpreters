@@ -1,0 +1,4 @@
+letfun pow2 x : int -> int =
+    if x < 1 then 1
+    else 2 * pow2 (x - 1)
+in pow2

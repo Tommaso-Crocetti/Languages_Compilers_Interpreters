@@ -1,0 +1,4 @@
+fun x: int =>
+    let isNeg = x < 0 in
+    if isNeg then 0 - x
+    else (if x < 1 then 0 else x)

@@ -22,3 +22,7 @@ $first(\alpha)$ is the set of tokens that appears as the first symbol in some st
 $follow(A)$ is the set of terminal symbols that can immediately follow $A$ in a sentential form. Then $first^+(A \rightarrow \alpha) = first(\alpha) \cup follow(A)$ if $\epsilon \in first(\alpha)$, otherwise $first^+(A \rightarrow \alpha) = first(\alpha)$.
 
 Then a grammar is LL(1) iff. $first^+(A \rightarrow \alpha) \cap first^+(A \rightarrow \beta) = \emptyset$
+
+LL(1) grammars are called predictive grammars, because the parser can predict the correct production just by looking at the current input and at the single lookahead.
+
+Not all grammars are LL(1) and either can be turned into LL(1), the positive case is when $A \rightarrow \alpha \beta_1 | \alpha \beta_2$ can be turned into $A \rightarrow \alpha A'$ and $A' \rightarrow \beta_1 | \beta_2$, and now if $first^+(A' \rightarrow \beta_1) \cap first^+(A \rightarrow \beta_2) \neq \emptyset$, then the grammar can be LL(1) 

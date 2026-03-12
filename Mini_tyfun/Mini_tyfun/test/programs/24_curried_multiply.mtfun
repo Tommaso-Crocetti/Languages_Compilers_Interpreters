@@ -1,0 +1,3 @@
+letfun mul x : int -> int -> int =
+    fun y: int => x * y
+in fun n: int => mul 3 n

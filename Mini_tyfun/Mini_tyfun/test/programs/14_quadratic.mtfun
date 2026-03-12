@@ -1,0 +1,4 @@
+fun x: int =>
+    let a = x * x in
+    let b = x * 3 in
+    a - b + 2

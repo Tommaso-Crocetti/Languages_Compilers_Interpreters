@@ -1,0 +1,3 @@
+fun x: int =>
+    let y = x * 2 in
+    y + 1

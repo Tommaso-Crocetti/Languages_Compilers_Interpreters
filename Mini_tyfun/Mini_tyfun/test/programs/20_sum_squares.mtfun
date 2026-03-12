@@ -1,0 +1,5 @@
+letfun square x : int -> int = x * x in
+letfun sumSq n : int -> int =
+    if n < 1 then 0
+    else (square n) + sumSq (n - 1)
+in sumSq

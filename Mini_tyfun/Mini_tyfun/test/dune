@@ -1,3 +1,6 @@
 (test
  (name test_Mini_tyfun)
- (libraries Mini_tyfun_Lib))
+ (libraries Mini_tyfun_Lib)
+ (deps
+	(universe)
+	(glob_files programs/*.mtfun)))

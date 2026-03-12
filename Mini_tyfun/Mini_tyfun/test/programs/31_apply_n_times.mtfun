@@ -1,0 +1,5 @@
+letfun applyN f : (int -> int) -> int -> int -> int =
+    fun n: int => fun x: int =>
+        if n < 1 then x
+        else applyN f (n - 1) (f x)
+in fun k: int => applyN (fun x: int => x + 1) k 0
