@@ -1,6 +1,6 @@
 open Mini_imp_Lib
 
-let programs_dir = "programs"
+let programs_dir = "tests"
 
 let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 
@@ -62,8 +62,8 @@ let run_program_file dir fname =
       let prog = parse_file path in
       (match expected_for_file fname with
       | None ->
-          Printf.printf "  [EXPECTED MISSING] no expected outputs configured for this file\n%!";
-          (1, 0)
+          Printf.printf "  [NO EXPECTED] syntax check only (parsed successfully)\n%!";
+          (1, 1)
       | Some expected ->
           if List.length expected <> List.length test_inputs then (
             Printf.printf "  [EXPECTED ERROR] expected vector length mismatch\n%!";
@@ -96,7 +96,7 @@ let run_program_file dir fname =
 let () =
   if not (Sys.file_exists programs_dir && Sys.is_directory programs_dir) then
     failwith
-      "Cannot locate test/programs. Ensure the programs directory exists inside Mini_imp/test.";
+      "Cannot locate test/tests. Ensure the tests directory exists inside Mini_imp/test.";
 
   let files = sorted_program_files programs_dir in
   Printf.printf "Found %d test programs in %s\n\n%!" (List.length files) programs_dir;

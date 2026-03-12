@@ -1,9 +1,0 @@
-def main with input x output y as
-    if x < 3 then
-        y := x
-    else
-        y := 1;
-        y := 2 * y;
-        y := 2 * y;
-        y := 2 * y;
-        y := 2 * y

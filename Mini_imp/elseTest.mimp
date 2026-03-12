@@ -1,6 +1,0 @@
-def main with input x output y as 
-    if x < -1 then
-        y := x -(x --10)
-    else
-        ( y := x;
-        y := 0 )

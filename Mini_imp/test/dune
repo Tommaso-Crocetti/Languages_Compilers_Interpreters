@@ -3,4 +3,4 @@
  (libraries Mini_imp_Lib)
  (deps
 	(universe)
-	(glob_files programs/*.mimp)))
+	(glob_files tests/*.mimp)))

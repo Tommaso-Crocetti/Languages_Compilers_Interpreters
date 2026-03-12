@@ -39,4 +39,5 @@ val type_check: term -> fun_type option
 
 val drop_types: term -> Mini_fun.term
 
-val print_AST: term -> unit
+val type_to_string: fun_type -> string
+val ast_to_string: term -> string

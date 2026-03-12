@@ -87,10 +87,36 @@ let rec eval_c (c: command) (s: state): state =
    | If (b, c1, c2) -> if eval_b b s then eval_c c1 s else eval_c c2 s
    | While (b, c) -> if eval_b b s then eval_c (While (b, c)) (eval_c c s) else s
 
-  let execute (p: program) (n: int): int =
+let execute (p: program) (n: int): int =
     let command = p.body in
     let initial_state = SMap.add p.input n SMap.empty in
     let final_state = eval_c command initial_state in
     match SMap.find_opt p.output final_state with
     | Some v -> v
     | None -> failwith ("Output variable " ^ p.output ^ " not found in final state.")
+
+let rec aexp_to_string (a: a_exp): string =
+  match a with
+  | Aval n -> string_of_int n
+  | Var x -> x
+  | Of_Bool b -> bexp_to_string b
+  | Plus (a1, a2) -> (aexp_to_string a1) ^ " + " ^ (aexp_to_string a2)
+  | Minus (a1, a2) -> (aexp_to_string a1) ^ " - " ^ (aexp_to_string a2)
+  | Times (a1, a2) -> (aexp_to_string a1) ^ " * " ^ (aexp_to_string a2) 
+and bexp_to_string (b: b_exp): string =
+  match b with
+  | Bval v -> string_of_bool v
+  | And (b1, b2) -> (bexp_to_string b1) ^ " && " ^ (bexp_to_string b2)
+  | Or (b1, b2) -> (bexp_to_string b1) ^ " || " ^ (bexp_to_string b2)
+  | Not b1 -> "!" ^ (bexp_to_string b1)
+  | Minor (a1, a2) -> (aexp_to_string a1) ^ " < " ^ (aexp_to_string a2)
+
+let rec command_to_string (c: command): string =
+  match c with
+  | Skip -> "skip"
+  | Assign (x, a) -> x ^ " := " ^ (aexp_to_string a)
+  | Seq (c1, c2) -> (command_to_string c1) ^ "; " ^ (command_to_string c2)
+  | If (b, c1, c2) -> "if " ^ (bexp_to_string b) ^ " then (" ^ (command_to_string c1) ^ ") else (" ^ (command_to_string c2) ^ ")"
+  | While (b, c) -> "while " ^ (bexp_to_string b) ^ " do (" ^ (command_to_string c) ^ ")"
+let program_to_string (p: program): string =
+    "def main with input " ^ p.input ^ " output " ^ p.output ^ " as\n" ^ (command_to_string p.body)

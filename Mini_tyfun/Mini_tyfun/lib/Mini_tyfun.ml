@@ -67,38 +67,38 @@ let type_check (t: term): fun_type option =
     | Fun (x, param_type, body) -> 
       (match term_type_check body (SMap.add x param_type g) with
       | Some body_type -> Some (ArrowT (param_type, body_type))
-      | None -> None)
+      | None -> failwith "TypeCheckError: Function body is not well-typed")
     | App (f, arg) ->
       (match term_type_check f g, term_type_check arg g with
       | Some (ArrowT (param_type, return_type)), Some arg_type when param_type = arg_type ->
           Some return_type
-      | _ -> None)
+      | _ -> failwith "TypeCheckError: Function application type mismatch")
     | Op (o, t1, t2) ->
       (match term_type_check t1 g, term_type_check t2 g with
           | Some IntT, Some IntT when o = Plus || o = Minus || o = Times -> Some IntT
           | Some BoolT, Some BoolT when o = And || o = Or -> Some BoolT
           | Some IntT, Some IntT when o = Minor -> Some BoolT
-          | _ -> None)        
+          | _ -> failwith "TypeCheckError: Operation type mismatch")        
     | Not t ->
       (match term_type_check t g with
       | Some BoolT -> Some BoolT
-      | _ -> None)
+      | _ -> failwith "TypeCheckError: Not operator applied to non-boolean")
     | If (c, t, e) ->
       (match term_type_check c g, term_type_check t g, term_type_check e g with
       | Some cond_type, Some t_type, Some e_type when cond_type = BoolT && t_type = e_type -> Some t_type
-      | _ -> None)
+      | _ -> failwith "TypeCheckError: If expression type mismatch")
     | Let (x, v, b) ->
       (match term_type_check v g with
       | Some v_type -> term_type_check b (SMap.add x v_type g)
-      | None -> None)
+      | None -> failwith "TypeCheckError: Let expression type mismatch")
     | LetFun (f, x, fun_type, body, b) ->
       match fun_type with
         | ArrowT (input_type, output_type) -> (
           match term_type_check body (SMap.add x input_type (SMap.add f fun_type g)) with
           | Some body_type when body_type = output_type -> term_type_check b (SMap.add f fun_type g)
-          | _ -> failwith "Error: Function body does not match declared return type"
+          | _ -> failwith "TypeCheckError: Function body does not match declared return type"
         )
-        | _ -> None
+        | _ -> failwith "TypeCheckError: Invalid function type"
   in term_type_check t SMap.empty
 
 let rec drop_types (t: term): Mini_fun.term =
@@ -122,55 +122,38 @@ let rec drop_types (t: term): Mini_fun.term =
   | Let (x, v, b) -> Mini_fun.let_ x (drop_types v) (drop_types b)
   | LetFun (f, x, _, body, b) -> Mini_fun.letfun f x (drop_types body) (drop_types b)
 
-
-let rec print_AST (t: term) = 
+let rec type_to_string (t: fun_type): string =
   match t with
-  | Int n -> print_int n
-  | Bool b -> print_string (string_of_bool b)
-  | Var x -> print_string x
-  | Fun (x, param_type, body) -> 
-    print_string ("fun " ^ x ^ ": " ^ (match param_type with
-      | IntT -> "int"
-      | BoolT -> "bool"
-      | ArrowT (_, _) -> "fun") ^ " -> ");
-    print_AST body
+  | IntT -> "int"
+  | BoolT -> "bool"
+  | ArrowT (t1, t2) -> "(" ^ type_to_string t1 ^ " -> " ^ type_to_string t2 ^ ")"
+
+let rec ast_to_string (t: term): string = 
+  match t with
+  | Int n -> string_of_int n
+  | Bool b -> string_of_bool b
+  | Var x -> x
+  | Fun (x, param_type, body) -> "fun " ^ x ^ ": " ^ (type_to_string param_type) ^ " => " ^ ast_to_string body
   | App (f, arg) ->
-    print_string "app (";
-    print_AST f;
-    print_string ") (";
-    print_AST arg;
-    print_string ")"
+    "app (" ^ ast_to_string f ^ ") (" ^ ast_to_string arg ^ ")"
   | Op (o, t1, t2) ->
-    print_string "(";
-    print_AST t1;
-    print_string (match o with
-      | Plus -> " + "
-      | Minus -> " - "
-      | Times -> " * "
-      | And -> " && "
-      | Or -> " || "
-      | Minor -> " < ");
-    print_AST t2;
-    print_string ")"
+    ast_to_string t1 ^ " " ^ (match o with
+      | Plus -> "+ "
+      | Minus -> "- "
+      | Times -> "* "
+      | And -> "&& "
+      | Or -> "|| "
+      | Minor -> "< ") ^ ast_to_string t2
   | Not t ->
-    print_string "not (";
-    print_AST t;
-    print_string ")"
+    "not " ^ ast_to_string t
   | If (c, t, e) ->
-    print_string "if (";
-    print_AST c;
-    print_string ") then (";
-    print_AST t;
-    print_string ") else (";
-    print_AST e;
-    print_string ")"
+    "if (" ^ ast_to_string c ^ ") then (" ^ ast_to_string t ^ ") else ("
+    ^ ast_to_string e
+    ^ ")"
   | Let (x, v, b) ->
-    print_string ("let " ^ x ^ " = ");
-    print_AST v;
-    print_string " in ";
-    print_AST b
-  | LetFun (f, x, _, body, b) ->
-    print_string ("let fun " ^ f ^ " (" ^ x ^ ": _) = ");
-    print_AST body;
-    print_string " in ";
-    print_AST b
+    "let " ^ x ^ " = " ^ ast_to_string v ^ " in " ^ ast_to_string b
+  | LetFun (f, x, fun_type, body, b) -> 
+    "letfun " ^ f ^ " " ^ x ^ ": " ^ (match fun_type with
+      | ArrowT (input_type, output_type) ->
+        type_to_string input_type ^ " -> " ^ type_to_string output_type
+      | _ -> "") ^ " = " ^ ast_to_string body ^ " in " ^ ast_to_string b

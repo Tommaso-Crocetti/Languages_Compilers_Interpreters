@@ -3,4 +3,4 @@
  (libraries Mini_tyfun_Lib)
  (deps
 	(universe)
-	(glob_files programs/*.mtfun)))
+	(glob_files tests/*.mtfun)))

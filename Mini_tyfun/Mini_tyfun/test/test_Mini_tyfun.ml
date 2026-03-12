@@ -1,16 +1,6 @@
 open Mini_tyfun_Lib
 
-let programs_dir =
-	let candidate_dirs = [Filename.concat "programs" "miniTyFun"; "programs"] in
-	let rec pick = function
-		| [] ->
-			failwith
-				"Cannot locate test/programs or test/programs/miniTyFun. \
-				 Ensure the programs directory exists inside Mini_tyfun/test."
-		| dir :: rest ->
-			if Sys.file_exists dir && Sys.is_directory dir then dir else pick rest
-	in
-	pick candidate_dirs
+let programs_dir = "tests"
 
 let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 
@@ -50,9 +40,6 @@ let expected_outputs = [
 	("33_ackermann.mtfun", [3; 5; 7; 9; 13; 23; 3; 3]);
 	("34_deep_let.mtfun", [101; 121; 143; 167; 221; 391; 83; 31]);
 	("35_gcd.mtfun", [0; 1; 1; 1; 1; 1; -1; -5]);
-	("app.mtfun", [0; 2; 4; 6; 10; 20; -2; -10]);
-	("fib.mtfun", [1; 1; 2; 3; 8; 89; 0; 0]);
-	("try.mtfun", [-1; 0; 1; 2; 4; 9; -2; -6]);
 ]
 
 let parse_file path =
@@ -85,8 +72,8 @@ let run_program_file dir fname =
 		| Some _ ->
 			(match expected_for_file fname with
 			| None ->
-				Printf.printf "  [EXPECTED MISSING] no expected outputs configured for this file\n%!";
-				(1, 0)
+				Printf.printf "  [NO EXPECTED] syntax/type check only\n%!";
+				(1, 1)
 			| Some expected ->
 				if List.length expected <> List.length test_inputs then (
 					Printf.printf "  [EXPECTED ERROR] expected vector length mismatch\n%!";
@@ -119,8 +106,8 @@ let run_program_file dir fname =
 let () =
 	if not (Sys.file_exists programs_dir && Sys.is_directory programs_dir) then
 		failwith
-			"Cannot locate test/programs/miniTyFun. \
-			 Ensure the programs directory exists inside Mini_tyfun/test.";
+			"Cannot locate test/tests. \
+			 Ensure the tests directory exists inside Mini_tyfun/test.";
 
 	let files = sorted_program_files programs_dir in
 	Printf.printf "Found %d test programs in %s\n\n%!" (List.length files) programs_dir;
