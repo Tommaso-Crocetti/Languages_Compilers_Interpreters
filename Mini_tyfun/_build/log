@@ -1,0 +1,30 @@
+# C:\Users\tomma\AppData\Local\opam\default\bin\dune.exe build
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location:
+# C:\Users\tomma\AppData\Local\Microsoft\Windows\INetCache\dune\db
+# Workspace root:
+# "C:\\Users\\tomma\\Desktop\\Unipi\\Languages_Compilers_and_Interpreters\\Mini_tyfun"
+# Auto-detected concurrency: 8
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_b31ce6_output
+$ (cd _build/.sandbox/7afa86b15877547c0a02e3218c9841e6/default && C:\Users\tomma\AppData\Local\opam\default\bin\menhir.exe Mini_tyfun/lib/Mini_tyfun_Parser.mly --base Mini_tyfun/lib/Mini_tyfun_Parser --infer-write-query Mini_tyfun/lib/Mini_tyfun_Parser__mock.ml.mock)
+$ (cd _build/.sandbox/61fa772be272240d60136cee48579311/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -impl Mini_tyfun/lib/Mini_tyfun_Parser__mock.ml.mock) > _build/.sandbox/61fa772be272240d60136cee48579311/default/Mini_tyfun/lib/.Mini_tyfun_Lib.objs/mini_tyfun_Parser__mock.impl.d
+$ (cd _build/.sandbox/fa5ff4a4b009b690e6d32e25879a2ae9/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -I Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte -I Mini_fun/lib/.Mini_fun.objs/byte -open Mini_tyfun_Lib -short-paths -i -impl Mini_tyfun/lib/Mini_tyfun_Parser__mock.ml.mock) > _build/.sandbox/fa5ff4a4b009b690e6d32e25879a2ae9/default/Mini_tyfun/lib/Mini_tyfun_Parser__mock.mli.inferred
+$ (cd _build/.sandbox/3c2bc32474424fac8c6dd29092042a15/default && C:\Users\tomma\AppData\Local\opam\default\bin\menhir.exe --explain Mini_tyfun/lib/Mini_tyfun_Parser.mly --base Mini_tyfun/lib/Mini_tyfun_Parser --infer-read-reply Mini_tyfun/lib/Mini_tyfun_Parser__mock.mli.inferred)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -impl Mini_tyfun/lib/Mini_tyfun_Parser.ml) > _build/default/Mini_tyfun/lib/.Mini_tyfun_Lib.objs/mini_tyfun_Lib__Mini_tyfun_Parser.impl.d
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte -I Mini_fun/lib/.Mini_fun.objs/byte -cmi-file Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Parser.cmi -no-alias-deps -opaque -open Mini_tyfun_Lib -o Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Parser.cmo -c -impl Mini_tyfun/lib/Mini_tyfun_Parser.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o Mini_tyfun/lib/Mini_tyfun_Lib.cma Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib.cmo Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun.cmo Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Parser.cmo Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Lexer.cmo Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Interpreter.cmo)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte -I Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native -I Mini_fun/lib/.Mini_fun.objs/byte -I Mini_fun/lib/.Mini_fun.objs/native -cmi-file Mini_tyfun/lib/.Mini_tyfun_Lib.objs/byte/mini_tyfun_Lib__Mini_tyfun_Parser.cmi -no-alias-deps -opaque -open Mini_tyfun_Lib -o Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib__Mini_tyfun_Parser.cmx -c -impl Mini_tyfun/lib/Mini_tyfun_Parser.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o Mini_tyfun/lib/Mini_tyfun_Lib.cmxa Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib.cmx Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib__Mini_tyfun.cmx Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib__Mini_tyfun_Parser.cmx Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib__Mini_tyfun_Lexer.cmx Mini_tyfun/lib/.Mini_tyfun_Lib.objs/native/mini_tyfun_Lib__Mini_tyfun_Interpreter.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -shared -linkall -I Mini_tyfun/lib -o Mini_tyfun/lib/Mini_tyfun_Lib.cmxs Mini_tyfun/lib/Mini_tyfun_Lib.cmxa)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o Mini_tyfun/test/test_Mini_tyfun.exe Mini_fun/lib/Mini_fun.cmxa Mini_tyfun/lib/Mini_tyfun_Lib.cmxa Mini_tyfun/test/.test_Mini_tyfun.eobjs/native/dune__exe__Test_Mini_tyfun.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o Mini_tyfun/bin/main.exe Mini_fun/lib/Mini_fun.cmxa Mini_tyfun/lib/Mini_tyfun_Lib.cmxa Mini_tyfun/bin/.main.eobjs/native/dune__exe__Main.cmx)

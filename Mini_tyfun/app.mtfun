@@ -1,0 +1,4 @@
+letfun inc x : int -> int = x + 1 in
+letfun twice f : (int -> int) -> (int -> int) =
+  fun x : int => f (f x)
+in twice inc 

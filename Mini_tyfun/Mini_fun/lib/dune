@@ -1,0 +1,3 @@
+(library
+ (name Mini_fun)
+ (public_name Mini_fun))

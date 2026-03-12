@@ -1,0 +1,9 @@
+(menhir
+ (modules Mini_tyfun_Parser))
+
+(ocamllex Mini_tyfun_Lexer)
+
+(library
+ (name Mini_tyfun_Lib)
+ (libraries Mini_fun)
+)

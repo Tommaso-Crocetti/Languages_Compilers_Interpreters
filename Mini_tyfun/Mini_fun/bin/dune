@@ -1,0 +1,5 @@
+(executable
+ (public_name Mini_fun)
+ (package Mini_fun)
+ (name main)
+ (libraries Mini_fun))
