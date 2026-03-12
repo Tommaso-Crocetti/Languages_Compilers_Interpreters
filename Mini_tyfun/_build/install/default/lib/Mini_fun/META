@@ -1,6 +1,0 @@
-description = ""
-requires = ""
-archive(byte) = "Mini_fun.cma"
-archive(native) = "Mini_fun.cmxa"
-plugin(byte) = "Mini_fun.cma"
-plugin(native) = "Mini_fun.cmxs"

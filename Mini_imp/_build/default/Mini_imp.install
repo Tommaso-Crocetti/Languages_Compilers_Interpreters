@@ -1,8 +1,0 @@
-lib: [
-  "_build/install/default/lib/Mini_imp/META"
-  "_build/install/default/lib/Mini_imp/dune-package"
-  "_build/install/default/lib/Mini_imp/opam"
-]
-bin: [
-  "_build/install/default/bin/Mini_imp.exe"
-]

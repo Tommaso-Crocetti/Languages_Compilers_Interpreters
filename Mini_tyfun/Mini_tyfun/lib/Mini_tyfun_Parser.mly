@@ -17,13 +17,14 @@
 
 %start <term> prg
 
+%left op
+
 %left OR
 %left AND
 %left MINOR
 
 %left PLUS MINUS
 %left TIMES
-%left NOT
 
 %left app
 
@@ -37,16 +38,16 @@ expr:
   | LETFUN ; f = VAR ; x = VAR ; COLON ; ty = fun_type ; EQUAL ; body = expr ; IN ; cont = expr { letfun f x ty body cont }
   | IF ; c = expr ; THEN ; t = expr ; ELSE ; e = expr { if_ c t e }
   | FUN ; x = VAR ; COLON ; ty = fun_type ; FUN_ARROW ; body = expr { fun_ x ty body }
-  | t = op_expr { t }
+  | t = op_expr %prec op { t }
 
 op_expr:
-  | t1 = op_expr ; OR ; t2 = op_expr { op or_ t1 t2 }
-  | t1 = op_expr ; AND ; t2 = op_expr { op and_ t1 t2 }
-  | t1 = op_expr ; MINOR ; t2 = op_expr { op minor t1 t2 }
-  | t1 = op_expr ; PLUS ; t2 = op_expr { op plus t1 t2 }
-  | t1 = op_expr ; MINUS ; t2 = op_expr { op minus t1 t2 }
-  | t1 = op_expr ; TIMES ; t2 = op_expr { op times t1 t2 }
-  | NOT ; t = op_expr { not_ t }
+  | t1 = op_expr ; OR ; t2 = expr { op or_ t1 t2 }
+  | t1 = op_expr ; AND ; t2 = expr { op and_ t1 t2 }
+  | t1 = op_expr ; MINOR ; t2 = expr { op minor t1 t2 }
+  | t1 = op_expr ; PLUS ; t2 = expr { op plus t1 t2 }
+  | t1 = op_expr ; MINUS ; t2 = expr { op minus t1 t2 }
+  | t1 = op_expr ; TIMES ; t2 = expr { op times t1 t2 }
+  | NOT ; t = expr { not_ t }
   | t = app_expr %prec app { t }
 
 app_expr:
