@@ -30,12 +30,11 @@ type command =
   | If of b_exp * command * command
   | While of b_exp * command
 
-type program =    
-  {
-    input: var;
-    output: var;
-    body: command;
-  }
+type program = {
+  input: var;
+  output: var;
+  body: command;
+}
 
 let aval n = Aval n
 let var x = Var x
@@ -115,7 +114,7 @@ let rec command_to_string (c: command): string =
   match c with
   | Skip -> "skip"
   | Assign (x, a) -> x ^ " := " ^ (aexp_to_string a)
-  | Seq (c1, c2) -> (command_to_string c1) ^ "; " ^ (command_to_string c2)
+  | Seq (c1, c2) -> "(" ^ (command_to_string c1) ^ ") ; (" ^ (command_to_string c2) ^ ")"
   | If (b, c1, c2) -> "if " ^ (bexp_to_string b) ^ " then (" ^ (command_to_string c1) ^ ") else (" ^ (command_to_string c2) ^ ")"
   | While (b, c) -> "while " ^ (bexp_to_string b) ^ " do (" ^ (command_to_string c) ^ ")"
 let program_to_string (p: program): string =

@@ -1,0 +1,23 @@
+# C:\Users\tomma\AppData\Local\opam\default\bin\dune.exe exec Mini_imp -- --cfg ast.mimp
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location:
+# C:\Users\tomma\AppData\Local\Microsoft\Windows\INetCache\dune\db
+# Workspace root:
+# "C:\\Users\\tomma\\Desktop\\Unipi\\Languages_Compilers_and_Interpreters\\Mini_imp"
+# Auto-detected concurrency: 8
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_563243_output
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -impl lib/Mini_imp_CFG.ml) > _build/default/lib/.Mini_imp_Lib.objs/mini_imp_Lib__Mini_imp_CFG.impl.d
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I lib/.Mini_imp_Lib.objs/byte -no-alias-deps -opaque -open Mini_imp_Lib -o lib/.Mini_imp_Lib.objs/byte/mini_imp_Lib__Mini_imp_CFG.cmo -c -impl lib/Mini_imp_CFG.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -I lib/.Mini_imp_Lib.objs/byte -I lib/.Mini_imp_Lib.objs/native -cmi-file lib/.Mini_imp_Lib.objs/byte/mini_imp_Lib__Mini_imp_CFG.cmi -no-alias-deps -opaque -open Mini_imp_Lib -o lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp_CFG.cmx -c -impl lib/Mini_imp_CFG.ml)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -a -o lib/Mini_imp_Lib.cmxa lib/.Mini_imp_Lib.objs/native/mini_imp_Lib.cmx lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp.cmx lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp_Parser.cmx lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp_Lexer.cmx lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp_CFG.cmx lib/.Mini_imp_Lib.objs/native/mini_imp_Lib__Mini_imp_Interpreter.cmx)
+$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlopt.opt.exe -short-paths -keep-locs -warn-error +a -g -o bin/main.exe lib/Mini_imp_Lib.cmxa bin/.main.eobjs/native/dune__exe__Main.cmx)

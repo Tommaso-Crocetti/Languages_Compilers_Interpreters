@@ -4,10 +4,32 @@ module SMap : Map.S with type key = var
 
 type state 
 
-type a_exp
-type b_exp
-type command
-type program
+type a_exp =
+  | Aval of int
+  | Var of var
+  | Of_Bool of b_exp
+  | Plus of a_exp * a_exp
+  | Minus of a_exp * a_exp
+  | Times of a_exp * a_exp
+and b_exp =
+  | Bval of bool
+  | And of b_exp * b_exp
+  | Or of b_exp * b_exp
+  | Not of b_exp
+  | Minor of a_exp * a_exp
+
+type command =
+  | Skip
+  | Assign of var * a_exp
+  | Seq of command * command
+  | If of b_exp * command * command
+  | While of b_exp * command
+
+type program = {
+  input: var;
+  output: var;
+  body: command;
+}
 
 val aval : int -> a_exp
 val var : var -> a_exp

@@ -19,7 +19,7 @@
 
 %start <program> prg
 
-%left CONCAT
+%right CONCAT
 %nonassoc ELSE DO
 
 %left OR
