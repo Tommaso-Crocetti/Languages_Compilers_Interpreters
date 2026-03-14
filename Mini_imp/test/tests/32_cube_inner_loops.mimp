@@ -1,0 +1,13 @@
+def main with input x output y as
+    a := x;
+    if a < 0 then a := 0 - a else skip;
+    y := 0;
+    i := a;
+    while 0 < i do (
+        j := a;
+        while 0 < j do (
+            y := y + a;
+            j := j - 1
+        );
+        i := i - 1
+    )

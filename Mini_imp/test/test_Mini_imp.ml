@@ -35,6 +35,9 @@ let expected_outputs = [
   ("28_skip_then_assign.mimp", [1; 2; 5; 10; 26; 101; 2; 26]);
   ("29_complex_expr.mimp", [-6; -4; 0; 6; 24; 104; -7; 13]);
   ("30_while_to_zero.mimp", [0; 1; 2; 3; 5; 10; 0; 0]);
+  ("31_square_inner_loops.mimp", [0; 1; 4; 9; 25; 100; 1; 25]);
+  ("32_cube_inner_loops.mimp", [0; 1; 8; 27; 125; 1000; 1; 125]);
+  ("33_product_minus_one_inner_loops.mimp", [0; 0; 2; 6; 20; 90; 0; 0]);
 ]
 
 let parse_file path =

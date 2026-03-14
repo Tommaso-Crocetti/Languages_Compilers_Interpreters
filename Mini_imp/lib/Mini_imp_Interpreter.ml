@@ -55,25 +55,16 @@ let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (
   let cfg = Mini_imp_CFG.make_cfg program in
 
   if show_cfg then (
-    let node_count = Mini_imp_CFG.NMap.cardinal cfg.nodes in
-    let edge_count = Mini_imp_CFG.EMap.cardinal cfg.edges in
-    let initial_id =
-      match cfg.initial with
-      | Some n -> string_of_int n
-      | None -> "none"
-    in
-    let final_id =
-      match cfg.final with
-      | Some n -> (match n with
-          | Mini_imp_CFG.Single id -> string_of_int id
-          | Mini_imp_CFG.Pair (id1, id2) -> "(" ^ string_of_int id1 ^ ", " ^ string_of_int id2 ^ ")")
-      | None -> "none"
-    in
     Printf.printf "=== CFG ===\n";
-    Printf.printf "nodes: %d\n" node_count;
-    Printf.printf "edges: %d\n" edge_count;
-    Printf.printf "initial: %s\n" initial_id;
-    Printf.printf "final: %s\n" final_id
+    Printf.printf "nodes: %d\n" (Mini_imp_CFG.NMap.cardinal cfg.nodes);
+    Printf.printf "edges: %d\n" (Mini_imp_CFG.EMap.cardinal cfg.edges);
+    Printf.printf "initial: 0\n";
+    Printf.printf "final: %s\n" (
+      match cfg.final with
+      | [n]-> string_of_int n
+      | _ -> failwith "Unexpected: final should be a single node"
+    );
+    Printf.printf "%s\n" (Mini_imp_CFG.cfg_to_string cfg);
   );
 
   if show_ast then (

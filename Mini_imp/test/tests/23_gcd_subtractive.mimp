@@ -4,15 +4,14 @@ def main with input x output y as
     b := x - 1;
     if b < 0 then b := 0 - b else skip;
     if a < 1 then
-        y := b
-    else
         if b < 1 then
             y := a
-        else (
+        else
             while (a < b) or (b < a) do
                 if a < b then
                     b := b - a
                 else
                     a := a - b;
+        y := b
+    else
             y := a
-        )
