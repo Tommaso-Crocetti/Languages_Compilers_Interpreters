@@ -12,6 +12,6 @@ def main with input x output y as
                     b := b - a
                 else
                     a := a - b;
-        y := b
+            y := b
     else
-            y := a
+        y := a

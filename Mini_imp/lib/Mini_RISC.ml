@@ -98,15 +98,21 @@ let rec translate_bexpr (e : Mini_imp.b_exp) (reg_map : var_to_reg): reg * instr
 
 
 let translate_block (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instructions list =
-  List.fold_left (fun acc stmt ->
+  let (code, _) = List.fold_left (fun (acc, curr_reg_map) stmt ->
     match stmt with
-    | Mini_imp_CFG.Skip -> acc @ [Nop]
+    | Mini_imp_CFG.Skip -> (acc @ [Nop], curr_reg_map)
     | Mini_imp_CFG.Assign (x, a) ->
-      let (r, code) = translate_aexpr a reg_map in
-      let _reg_map = SMap.add x r reg_map in
-      acc @ code (* Keep translated result in register r; store semantics can be added if needed *)
+      let (r, code) = translate_aexpr a curr_reg_map in
+      let (x_reg, next_reg_map) =
+        match SMap.find_opt x curr_reg_map with
+        | Some xr -> (xr, curr_reg_map)
+        | None ->
+            let xr = fresh_reg () in
+            (xr, SMap.add x xr curr_reg_map)
+      in
+      (acc @ code @ [Urop (Copy, x_reg, r)], next_reg_map)
     | Mini_imp_CFG.Guard (b) ->
-      let (r, code) = translate_bexpr b reg_map in
-      acc @ code
-    | _ -> failwith "Only Skip and Assign are implemented in this example"
-  ) [] stmts
+      let (_, code) = translate_bexpr b curr_reg_map in
+      (acc @ code, curr_reg_map)
+  ) ([], reg_map) stmts in
+  code
