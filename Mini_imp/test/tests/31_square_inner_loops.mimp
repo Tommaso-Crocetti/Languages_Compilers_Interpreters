@@ -4,6 +4,7 @@ def main with input x output y as
     y := 0;
     i := a;
     while 0 < i do (
+        j := a;
         while 0 < j do (
             y := y + 1;
             j := j - 1

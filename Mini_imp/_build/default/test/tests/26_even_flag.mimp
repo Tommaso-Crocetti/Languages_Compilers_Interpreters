@@ -1,6 +1,0 @@
-def main with input x output y as
-    n := x;
-    if n < 0 then n := 0 - n else skip;
-    while 1 < n do
-        n := n - 2;
-    y := of_bool (n < 1)

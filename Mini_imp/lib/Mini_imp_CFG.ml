@@ -7,21 +7,12 @@ type out_node =
   | Single of int
   | Pair of int * int
 
-(* Nodes are represented as maps from integers to list of statements *)
 module NMap = Map.Make(struct type t = int let compare = compare end)
-
-(* Edges are represented as maps from integers to out_node values (either single nodes or pairs of nodes) *)
-module EdgeOrd : Set.OrderedType with type t = int = struct
-  type t = int
-  let compare = compare
-end
-
-module EMap = Map.Make(EdgeOrd)
 
 type cfg = 
 {
   nodes: statement list NMap.t;
-  edges: out_node EMap.t;
+  edges: out_node NMap.t;
   initial: int;
   final: int list;
 }
@@ -36,7 +27,7 @@ let fresh_id =
 let empty_cfg : cfg =
   {
     nodes = NMap.empty;
-    edges = EMap.empty;
+    edges = NMap.empty;
     initial = 0;
     final = [0];
   }
@@ -54,13 +45,13 @@ let add_node (g: cfg) (stmts: statement list) : cfg =
 
 (* Adds an edge to the CFG *)
 let add_edge (g: cfg) (src: int) (dst: out_node) : cfg =
-  { g with edges = EMap.add src dst g.edges }
+  { g with edges = NMap.add src dst g.edges }
 
 (* Helper backpatch function *)
 let connect_pending_node (g: cfg) (src: int) (dst: int) : cfg =
   if src = dst then g
   else
-    match EMap.find_opt src g.edges with
+    match NMap.find_opt src g.edges with
     (* If no edge exists from the source node, create a new edge *)
     | None -> add_edge g src (Single dst)
     (* If an edge already exists, there is no need to update the cfg *)
@@ -289,5 +280,5 @@ let cfg_to_string (g: cfg) : string =
         string_of_int src ^ " -> " ^ dst_str
     in
     let nodes_str = NMap.bindings g.nodes |> List.map (fun (id, stmts) -> node_str id stmts) |> String.concat "\n" in
-    let edges_str = EMap.bindings g.edges |> List.map (fun (src, dst) -> edge_str src dst) |> String.concat "\n" in
+    let edges_str = NMap.bindings g.edges |> List.map (fun (src, dst) -> edge_str src dst) |> String.concat "\n" in
     "Nodes:\n" ^ nodes_str ^ "\nEdges:\n" ^ edges_str

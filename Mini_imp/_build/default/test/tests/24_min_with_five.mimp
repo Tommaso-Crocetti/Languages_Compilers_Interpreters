@@ -1,2 +1,0 @@
-def main with input x output y as
-    if x < 5 then y := x else y := 5

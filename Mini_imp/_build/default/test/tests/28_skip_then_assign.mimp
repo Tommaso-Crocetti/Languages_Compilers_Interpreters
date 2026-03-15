@@ -1,3 +1,0 @@
-def main with input x output y as
-    skip;
-    y := x * x + 1

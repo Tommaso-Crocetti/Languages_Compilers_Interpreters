@@ -1,2 +1,0 @@
-def main with input x output y as
-    y := ((x + 3) * (x - 2)) - of_bool ((x < 0) or (10 < x))

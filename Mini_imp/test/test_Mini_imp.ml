@@ -4,6 +4,165 @@ let programs_dir = "tests"
 
 let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 
+let string_of_reg = function
+  | Mini_RISC.Rin -> "Rin"
+  | Mini_RISC.Rout -> "Rout"
+  | Mini_RISC.RVar n -> "R" ^ string_of_int n
+
+let string_of_brop = function
+  | Mini_RISC.Add -> "Add"
+  | Mini_RISC.Sub -> "Sub"
+  | Mini_RISC.Mult -> "Mult"
+  | Mini_RISC.And -> "And"
+  | Mini_RISC.Less -> "Less"
+  | Mini_RISC.Or -> "Or"
+
+let string_of_biop = function
+  | Mini_RISC.AddI -> "AddI"
+  | Mini_RISC.SubI -> "SubI"
+  | Mini_RISC.MultI -> "MultI"
+  | Mini_RISC.AndI -> "AndI"
+  | Mini_RISC.OrI -> "OrI"
+
+let string_of_urop = function
+  | Mini_RISC.Not -> "Not"
+  | Mini_RISC.Copy -> "Copy"
+
+let string_of_instruction = function
+  | Mini_RISC.Nop -> "Nop"
+  | Mini_RISC.Brop (op, left, right, dst) ->
+      Printf.sprintf "Brop(%s,%s,%s,%s)"
+        (string_of_brop op)
+        (string_of_reg left)
+        (string_of_reg right)
+        (string_of_reg dst)
+  | Mini_RISC.Biop (op, src, imm, dst) ->
+      Printf.sprintf "Biop(%s,%s,%d,%s)"
+        (string_of_biop op)
+        (string_of_reg src)
+        imm
+        (string_of_reg dst)
+  | Mini_RISC.Urop (op, src, dst) ->
+      Printf.sprintf "Urop(%s,%s,%s)"
+        (string_of_urop op)
+        (string_of_reg src)
+        (string_of_reg dst)
+  | Mini_RISC.Load (src, dst) ->
+      Printf.sprintf "Load(%s,%s)" (string_of_reg src) (string_of_reg dst)
+  | Mini_RISC.LoadI (n, dst) ->
+      Printf.sprintf "LoadI(%d,%s)" n (string_of_reg dst)
+  | Mini_RISC.Store (src, dst) ->
+      Printf.sprintf "Store(%s,%s)" (string_of_reg src) (string_of_reg dst)
+  | Mini_RISC.Jump label -> Printf.sprintf "Jump(%s)" label
+  | Mini_RISC.CJump (cond, l1, l2) ->
+      Printf.sprintf "CJump(%s,%s,%s)" (string_of_reg cond) l1 l2
+
+let string_of_instructions code =
+  code
+  |> List.map string_of_instruction
+  |> String.concat "; "
+
+let normalize_instructions code =
+  let next = ref 0 in
+  let seen = Hashtbl.create 8 in
+  let normalize_reg = function
+    | Mini_RISC.Rin -> Mini_RISC.Rin
+    | Mini_RISC.Rout -> Mini_RISC.Rout
+    | Mini_RISC.RVar n ->
+        (match Hashtbl.find_opt seen n with
+        | Some mapped -> Mini_RISC.RVar mapped
+        | None ->
+            incr next;
+            Hashtbl.add seen n !next;
+            Mini_RISC.RVar !next)
+  in
+  let normalize_instruction = function
+    | Mini_RISC.Nop -> Mini_RISC.Nop
+    | Mini_RISC.Brop (op, left, right, dst) ->
+      Mini_RISC.Brop (op, normalize_reg left, normalize_reg right, normalize_reg dst)
+    | Mini_RISC.Biop (op, src, imm, dst) ->
+        Mini_RISC.Biop (op, normalize_reg src, imm, normalize_reg dst)
+    | Mini_RISC.Urop (op, src, dst) ->
+        Mini_RISC.Urop (op, normalize_reg src, normalize_reg dst)
+    | Mini_RISC.Load (src, dst) ->
+        Mini_RISC.Load (normalize_reg src, normalize_reg dst)
+    | Mini_RISC.LoadI (n, dst) ->
+        Mini_RISC.LoadI (n, normalize_reg dst)
+    | Mini_RISC.Store (src, dst) ->
+        Mini_RISC.Store (normalize_reg src, normalize_reg dst)
+    | Mini_RISC.Jump label -> Mini_RISC.Jump label
+    | Mini_RISC.CJump (cond, l1, l2) ->
+        Mini_RISC.CJump (normalize_reg cond, l1, l2)
+  in
+  List.map normalize_instruction code
+
+let assert_translation name expr expected =
+  let reg_map = Mini_RISC.initial_reg_map "input" "output" in
+  let (_, actual) = Mini_RISC.translate_aexpr expr None reg_map in
+  let actual = normalize_instructions actual in
+  if actual <> expected then
+    failwith
+      (Printf.sprintf
+         "translation test '%s' failed\nexpected: [%s]\nactual:   [%s]"
+         name
+         (string_of_instructions expected)
+         (string_of_instructions actual))
+
+let run_translation_tests () =
+  let open Mini_imp in
+  let tests = [
+    ( "plus const const",
+      plus (aval 2) (aval 3),
+      [
+        Mini_RISC.LoadI (2, Mini_RISC.RVar 1);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.RVar 1, 3, Mini_RISC.RVar 1);
+      ] );
+    ( "plus var const",
+      plus (var "input") (aval 4),
+      [Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 4, Mini_RISC.RVar 1)] );
+    ( "plus nested const",
+      plus (aval 2) (plus (var "input") (aval 1)),
+      [
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 1, Mini_RISC.RVar 1);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.RVar 1, 2, Mini_RISC.RVar 2);
+      ] );
+    ( "minus var const",
+      minus (var "input") (aval 4),
+      [Mini_RISC.Biop (Mini_RISC.SubI, Mini_RISC.Rin, 4, Mini_RISC.RVar 1)] );
+    ( "minus const var",
+      minus (aval 4) (var "input"),
+      [
+        Mini_RISC.LoadI (4, Mini_RISC.RVar 1);
+        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.RVar 1, Mini_RISC.Rin, Mini_RISC.RVar 2);
+      ] );
+    ( "minus expr var",
+      minus (plus (var "input") (aval 2)) (var "input"),
+      [
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 2, Mini_RISC.RVar 1);
+        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.RVar 1, Mini_RISC.Rin, Mini_RISC.RVar 2);
+      ] );
+    ( "times const const",
+      times (aval 2) (aval 3),
+      [
+        Mini_RISC.LoadI (2, Mini_RISC.RVar 1);
+        Mini_RISC.Biop (Mini_RISC.MultI, Mini_RISC.RVar 1, 3, Mini_RISC.RVar 1);
+      ] );
+    ( "times zero",
+      times (aval 0) (var "input"),
+      [Mini_RISC.LoadI (0, Mini_RISC.RVar 1)] );
+    ( "times one",
+      times (var "input") (aval 1),
+      [Mini_RISC.Urop (Mini_RISC.Copy, Mini_RISC.Rin, Mini_RISC.RVar 1)] );
+    ( "times var expr",
+      times (var "input") (plus (aval 1) (aval 2)),
+      [
+        Mini_RISC.LoadI (1, Mini_RISC.RVar 1);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.RVar 1, 2, Mini_RISC.RVar 1);
+        Mini_RISC.Brop (Mini_RISC.Mult, Mini_RISC.Rin, Mini_RISC.RVar 1, Mini_RISC.RVar 2);
+      ] );
+  ] in
+  List.iter (fun (name, expr, expected) -> assert_translation name expr expected) tests
+
 let expected_outputs = [
   ("01_identity.mimp", [0; 1; 2; 3; 5; 10; -1; -5]);
   ("02_constant_zero.mimp", [0; 0; 0; 0; 0; 0; 0; 0]);
@@ -97,6 +256,8 @@ let run_program_file dir fname =
   counts
 
 let () =
+  run_translation_tests ();
+
   if not (Sys.file_exists programs_dir && Sys.is_directory programs_dir) then
     failwith
       "Cannot locate test/tests. Ensure the tests directory exists inside Mini_imp/test.";

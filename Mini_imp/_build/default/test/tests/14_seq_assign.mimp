@@ -1,4 +1,0 @@
-def main with input x output y as
-    y := x;
-    y := y + 2;
-    y := y * 3

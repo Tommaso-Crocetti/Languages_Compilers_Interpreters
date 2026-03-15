@@ -50,6 +50,11 @@ let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (
   let lexbuf = Lexing.from_channel ic in
   let program = Mini_imp_Parser.prg Mini_imp_Lexer.read lexbuf in
   close_in ic;
+  
+  if show_ast then (
+    print_endline "=== AST ===";
+    print_endline (Mini_imp.program_to_string program);
+  );
 
   (* Build CFG eagerly so the analysis pipeline is exercised on every run. *)
   let cfg = Mini_imp_CFG.make_cfg program in
@@ -57,7 +62,7 @@ let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (
   if show_cfg then (
     Printf.printf "=== CFG ===\n";
     Printf.printf "nodes: %d\n" (Mini_imp_CFG.NMap.cardinal cfg.nodes);
-    Printf.printf "edges: %d\n" (Mini_imp_CFG.EMap.cardinal cfg.edges);
+    Printf.printf "edges: %d\n" (Mini_imp_CFG.NMap.cardinal cfg.edges);
     Printf.printf "initial: 0\n";
     Printf.printf "final: %s\n" (
       match cfg.final with
@@ -67,10 +72,6 @@ let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (
     Printf.printf "%s\n" (Mini_imp_CFG.cfg_to_string cfg);
   );
 
-  if show_ast then (
-    print_endline "=== AST ===";
-    print_endline (Mini_imp.program_to_string program);
-  );
   print_endline "=== Input ===";
   let input = read_int () in
   print_endline "=== Output ===";

@@ -1,2 +1,0 @@
-def main with input x output y as
-    y := of_bool ((0 < x) and (x < 10))
