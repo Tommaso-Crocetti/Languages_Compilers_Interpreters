@@ -39,7 +39,7 @@ let print_token_stream (lexbuf : Lexing.lexbuf) : unit =
   in
   loop ()
 
-let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (filename: string) =
+let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) ?(show_risc_cfg = false) (filename: string) =
   if show_tokens then (
     print_endline "=== Tokens ===";
     let ic = open_in filename in
@@ -70,6 +70,16 @@ let run_program ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false) (
       | _ -> failwith "Unexpected: final should be a single node"
     );
     Printf.printf "%s\n" (Mini_imp_CFG.cfg_to_string cfg);
+  );
+
+  if show_risc_cfg then (
+    let risc_cfg = Mini_RISC.translate_cfg cfg program.input program.output in
+    Printf.printf "=== RISC CFG ===\n";
+    Printf.printf "nodes: %d\n" (Mini_RISC.NMap.cardinal risc_cfg.nodes);
+    Printf.printf "edges: %d\n" (Mini_RISC.NMap.cardinal risc_cfg.edges);
+    Printf.printf "initial: %d\n" risc_cfg.initial;
+    Printf.printf "final: %d\n" risc_cfg.final;
+    Printf.printf "%s\n" (Mini_RISC.risc_cfg_to_string risc_cfg);
   );
 
   print_endline "=== Input ===";

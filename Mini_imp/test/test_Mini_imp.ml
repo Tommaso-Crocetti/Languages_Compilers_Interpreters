@@ -7,6 +7,8 @@ let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 let string_of_reg = function
   | Mini_RISC.Rin -> "Rin"
   | Mini_RISC.Rout -> "Rout"
+  | Mini_RISC.Ra -> "Ra"
+  | Mini_RISC.Rb -> "Rb"
   | Mini_RISC.RVar n -> "R" ^ string_of_int n
 
 let string_of_brop = function
@@ -68,6 +70,8 @@ let normalize_instructions code =
   let normalize_reg = function
     | Mini_RISC.Rin -> Mini_RISC.Rin
     | Mini_RISC.Rout -> Mini_RISC.Rout
+    | Mini_RISC.Ra -> Mini_RISC.Ra
+    | Mini_RISC.Rb -> Mini_RISC.Rb
     | Mini_RISC.RVar n ->
         (match Hashtbl.find_opt seen n with
         | Some mapped -> Mini_RISC.RVar mapped
@@ -112,8 +116,8 @@ let find_unique_loadi_reg cfg value =
   let matches =
     cfg.Mini_RISC.nodes
     |> Mini_imp_CFG.NMap.bindings
-    |> List.filter_map (fun (_node_id, code) ->
-         match code with
+    |> List.filter_map (fun (_node_id, node) ->
+         match node.Mini_RISC.instructions with
          | [Mini_RISC.LoadI (n, reg)] when n = value -> Some reg
          | _ -> None)
   in

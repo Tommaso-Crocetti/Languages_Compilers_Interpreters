@@ -1,10 +1,12 @@
 (* IMPORTANT! ASK IF BOOLEAN SHORT-CIRCUIT EVALUATION CAN BE IMPLEMENTED (unneccessary AndI?) *)
 
 (* TODO: 
-  1. Remove unnecessary result registers by reusing the final computation register
-  3. / Check if @ can be avoided (possible, but makes the code more complex and less readable)
+  1. Remove unnecessary result registers by reusing the final computation register + temporary registers when possible
+  2. Comment the code 
+  3. (Done!) Check if @ can be avoided -> (possible, but makes the code more complex and less readable)
   4. Think about how input and output variables names are associated with Rin and Rout
-  5. Check if same variable in different nodes are associated with the same register
+  5. (Done!) Check if same variable in different nodes are associated with the same register
+  6. (Done!) RISC-cfg -> RISC code
 *)
 
 module NMap = Mini_imp_CFG.NMap
@@ -18,8 +20,9 @@ module SMap = Map.Make(StrOrd)
 
 module ISet = Set.Make(struct type t = int let compare = compare end)
 
-type reg = Rin | Rout | RVar of int
+type reg = Rin | Rout | Ra | Rb | RVar of int
 
+(* A mapping from variable names to registers *)
 type var_to_reg = reg SMap.t
 
 type label = string
@@ -39,12 +42,20 @@ type instruction =
   | Jump of label
   | CJump of reg * label * label
 
+(* Code is a mapping from labels to lists of instructions *)
 type code = instruction list SMap.t
+
+(* A RISC node contains a list of instructions and an optional guard register *)
+type risc_node =
+  {
+    instructions: instruction list;
+    guard_reg: reg option;
+  }
 
 type risc_cfg = 
   {
-    (* Nodes are represented as int -> instruction list *)
-    nodes: instruction list NMap.t;
+    (* Nodes are represented as int -> risc_node *)
+    nodes: risc_node NMap.t;
     (* Edges are represented as int -> int list *)
     edges: Mini_imp_CFG.out_node NMap.t;
     initial: int;
@@ -59,7 +70,7 @@ let empty_risc_cfg : risc_cfg =
     final = 0;
   }
 
-(** Helper function to generate a fresh register *)
+(* Helper function to generate a fresh register *)
 let fresh_reg : unit -> reg =
   let next = ref (-1) in
   fun () ->
@@ -175,6 +186,12 @@ and translate_minus_aexpr (target_reg : reg option) (a1 : Mini_imp.a_exp) (a2 : 
     let (t, code) = translate_aexpr a None reg_map in
     let result_reg = match target_reg with Some r -> r | None -> fresh_reg () in
     (result_reg, [LoadI (n, result_reg)] @ code @ [Brop (Sub, result_reg, t, result_reg)])
+  (* x - y, directly perform a brop *)
+  | (Mini_imp.Var x, Mini_imp.Var y) ->
+    let x_reg = SMap.find x reg_map in
+    let y_reg = SMap.find y reg_map in
+    let result_reg = match target_reg with Some r -> r | None -> fresh_reg () in
+    (result_reg, [Brop (Sub, x_reg, y_reg, result_reg)])
   (* x - a, translate the arithmetic expression and perform a brop *)
   | (Mini_imp.Var x, a) ->
     let base_reg = SMap.find x reg_map in
@@ -311,87 +328,253 @@ let rec translate_bexpr (e : Mini_imp.b_exp) (reg_map : var_to_reg): reg * instr
     )
 
 (* Function that translates a list of statements into a list of RISC instructions *)
-let translate_block (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list * var_to_reg =
-  List.fold_left (fun (acc, curr_reg_map) stmt ->
-    match stmt with
-    (* Skip -> Nop *)
-    | Mini_imp_CFG.Skip -> (acc @ [Nop], curr_reg_map)
-    (* For assignements, translate the right-hand side,
-    storing the result in the register associated to the variable *)
-    | Mini_imp_CFG.Assign (x, a) ->
-      let (x_reg, next_reg_map) =
-        match SMap.find_opt x curr_reg_map with
-        | Some xr -> (xr, curr_reg_map)
-        | None ->
-            let xr = fresh_reg () in
-            (xr, SMap.add x xr curr_reg_map)
-      in
-      let (_, rhs_code) = translate_aexpr a (Some x_reg) curr_reg_map in
-      (acc @ rhs_code, next_reg_map)
-    (* For guards, simply translate the boolean expression *)
-    | Mini_imp_CFG.Guard (b) ->
-      let (_, code) = translate_bexpr b curr_reg_map in
-      (acc @ code, curr_reg_map)
-  ) ([], reg_map) stmts
+let translate_stmts (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list * var_to_reg * reg option =
+  let rev_instruction_list, final_reg_map, final_guard_reg_opt =
+    List.fold_left (fun (acc, curr_reg_map, guard_reg_opt) stmt ->
+      match stmt with
+      (* Skip -> Nop *)
+      | Mini_imp_CFG.Skip -> ([Nop] :: acc, curr_reg_map, guard_reg_opt)
+      (* For assignements, translate the right-hand side,
+      storing the result in the register associated to the variable *)
+      | Mini_imp_CFG.Assign (x, a) ->
+        let (x_reg, next_reg_map) =
+          match SMap.find_opt x curr_reg_map with
+          | Some xr -> (xr, curr_reg_map)
+          | None ->
+              let xr = fresh_reg () in
+              (xr, SMap.add x xr curr_reg_map)
+        in
+        let (_, rhs_code) = translate_aexpr a (Some x_reg) curr_reg_map in
+        (rhs_code :: acc, next_reg_map, guard_reg_opt)
+      (* For guards, simply translate the boolean expression and link the guard register *)
+      | Mini_imp_CFG.Guard (b) ->
+        let (guard_reg, code) = translate_bexpr b curr_reg_map in
+        (code :: acc, curr_reg_map, Some guard_reg)
+    ) ([], reg_map, None) stmts
+  in
+  (List.concat (List.rev rev_instruction_list), final_reg_map, final_guard_reg_opt)
 
-let add_node (g: risc_cfg) (node_id: int) (code: instruction list) : risc_cfg =
-  { g with nodes = NMap.add node_id code g.nodes }
+(* Helper function that adds a node to the RISC CFG *)
+let add_node (g: risc_cfg) (node_id: int) (code: instruction list) (guard_reg_opt: reg option) : risc_cfg =
+  let node = { instructions = code; guard_reg = guard_reg_opt } in
+  { g with nodes = NMap.add node_id node g.nodes }
 
+(* Helper function that adds an edge to the RISC CFG *)
 let add_edge (g: risc_cfg) (src: int) (dst: Mini_imp_CFG.out_node) : risc_cfg =
   { g with edges = NMap.add src dst g.edges } 
 
+(* Helper function that finds the join node for a pair of nodes in the CFG *)
 let pair_join_node (cfg: Mini_imp_CFG.cfg) (left_node: int) (right_node: int) : int option =
   match NMap.find_opt left_node cfg.edges, NMap.find_opt right_node cfg.edges with
   | Some (Mini_imp_CFG.Single left_next), Some (Mini_imp_CFG.Single right_next)
     when left_next = right_next -> Some left_next
   | _ -> None
 
-
-(* Main function, translates a control flow graph to a RISC control flow graph *)
+(* Main function, translates a CFG to a RISC CFG by traversing the original one *)
 let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string): risc_cfg =
   let initial_reg_map = initial_reg_map input_var output_var in
   let rec rec_translate_cfg
     (cfg: Mini_imp_CFG.cfg)
     (risc_cfg: risc_cfg)
-    (node_id: int)
-    (visited: ISet.t)
-    (curr_reg_map: var_to_reg)
-    (stop_before: int option)
+    (node_id: int)  (* Current node Id *)
+    (visited: ISet.t)   (* Set of visited nodes *)
+    (curr_reg_map: var_to_reg)  (* Current register map *)
+    (stop_before: int option)  (* Optional node Id to stop before, used for managing join nodes *)
     : risc_cfg * ISet.t * var_to_reg =
+    (* Upon reaching the stop node or an already visited node, stop the visit *)
     if stop_before = Some node_id then (risc_cfg, visited, curr_reg_map)
     else if ISet.mem node_id visited then (risc_cfg, visited, curr_reg_map)
     else
+      (* Add the current node to the visited set and translate the block *)
       let visited = ISet.add node_id visited in
-      let instructions, next_reg_map = translate_block (NMap.find node_id cfg.nodes) curr_reg_map in
-      let risc_cfg = add_node risc_cfg node_id instructions in
+      let instructions, next_reg_map, guard_reg_opt = translate_stmts (NMap.find node_id cfg.nodes) curr_reg_map in
+      (* Add the corresponding RISC node and the edges to the RISC CFG *)
+      let risc_cfg = add_node risc_cfg node_id instructions guard_reg_opt in
       match NMap.find_opt node_id cfg.edges with
+      (* If there is no outgoing edge, the final node has been reached *)
       | None -> (risc_cfg, visited, next_reg_map)
       | Some out_edge ->
         let risc_cfg = add_edge risc_cfg node_id out_edge in
         (match out_edge with
+        (* If the outgoing edge point to a single node, sequentially continue the visit,
+        preserving the current register map and stop node *)
         | Mini_imp_CFG.Single next_node ->
-          if ISet.mem next_node visited then (risc_cfg, visited, next_reg_map)
-          else rec_translate_cfg cfg risc_cfg next_node visited next_reg_map stop_before
+          rec_translate_cfg cfg risc_cfg next_node visited next_reg_map stop_before
+        (* If the outgoing edge is a pair of nodes, find the join node, if it exists,
+        ensuring that the visit ends on that node and preserving the register map *)
         | Mini_imp_CFG.Pair (left_node, right_node) ->
           let join_node = pair_join_node cfg left_node right_node in
+          (* First visit the left node, either the initial node of a then branch or of a while body *)
           let (risc_cfg, visited, _left_reg_map) = 
-            if ISet.mem left_node visited then (risc_cfg, visited, next_reg_map)
-            else rec_translate_cfg cfg risc_cfg left_node visited next_reg_map join_node in
+            rec_translate_cfg cfg risc_cfg left_node visited next_reg_map join_node in
+          (* Then visit the right node, that is the initial node of the else branch
+          or the while guard (currently visited) *)
           let (risc_cfg, visited, _right_reg_map) = 
-            if ISet.mem right_node visited then (risc_cfg, visited, next_reg_map)
-            else rec_translate_cfg cfg risc_cfg right_node visited next_reg_map join_node in
+            rec_translate_cfg cfg risc_cfg right_node visited next_reg_map join_node in
+          (* If the join node exists and has not been visited, 
+          it is a join node of an if statement, so continue the visit from that node 
+          preserving the register map and the previous stop node*)
           (match join_node with
           | Some join_id when not (ISet.mem join_id visited) ->
             rec_translate_cfg cfg risc_cfg join_id visited next_reg_map stop_before
           | _ ->
-            (risc_cfg, visited, next_reg_map))
+            (risc_cfg, visited, next_reg_map)
+          )
         )
   in
-  let initial_final =
+  let final_node =
     match g.final with
     | n :: _ -> n
     | [] -> g.initial
   in
-  let seed_cfg = { empty_risc_cfg with initial = g.initial; final = initial_final } in
-  let (risc_cfg, _, _) = rec_translate_cfg g seed_cfg g.initial ISet.empty initial_reg_map None in
+  let initial_risc_cfg = { empty_risc_cfg with initial = g.initial; final = final_node } in
+  let (risc_cfg, _, _) = rec_translate_cfg g initial_risc_cfg g.initial ISet.empty initial_reg_map None in
   risc_cfg
+
+(* Helper function that generates the label for a node Id *)
+let label_of_node_id (node_id: int) : string =
+  if node_id = 0 then "main" else Printf.sprintf "l%d" node_id
+
+(* Helper function that appends a jump representing the outgoing edge of the node *)
+let append_jump (cfg: risc_cfg) (node_id: int) (node: risc_node) : instruction list =
+  match NMap.find_opt node_id cfg.edges with
+  (* If there is no outgoing edge, the final node has been reached *)
+  | None -> node.instructions
+  (* If there is a single outgoing edge, append a jump *)
+  | Some (Mini_imp_CFG.Single next_node) ->
+    node.instructions @ [Jump (label_of_node_id next_node)]
+  (* If there is a pair of outgoing edges,
+  append a conditional jump based on the guard register*)
+  | Some (Mini_imp_CFG.Pair (left_node, right_node)) ->
+    (match node.guard_reg with
+    | Some cond_reg ->
+      node.instructions @ [CJump (cond_reg, label_of_node_id left_node, label_of_node_id right_node)]
+    | None ->
+      failwith (Printf.sprintf "Cannot emit CJump for node %d: no guard register found" node_id))
+
+let string_of_instruction (instr: instruction) : string =
+  let reg_to_string = function
+    | Rin -> "Rin"
+    | Rout -> "Rout"
+    | Ra -> "Ra"
+    | Rb -> "Rb"
+    | RVar n -> Printf.sprintf "R%d" n
+  in
+  let brop_to_string = function
+    | Add -> "Add"
+    | Sub -> "Sub"
+    | Mult -> "Mult"
+    | And -> "And"
+    | Or -> "Or"
+    | Less -> "Less"
+  in
+  let biop_to_string = function
+    | AddI -> "AddI"
+    | SubI -> "SubI"
+    | MultI -> "MultI"
+    | AndI -> "AndI"
+    | OrI -> "OrI"
+  in
+  let urop_to_string = function
+    | Not -> "Not"
+    | Copy -> "Copy"
+  in
+  match instr with
+  | Nop -> "Nop"
+  | Brop (b, r1, r2, r3) ->
+    Printf.sprintf "%s %s, %s, %s" (brop_to_string b) (reg_to_string r1) (reg_to_string r2) (reg_to_string r3)
+  | Biop (b, r, n, r2) ->
+    Printf.sprintf "%s %s, %d, %s" (biop_to_string b) (reg_to_string r) n (reg_to_string r2)
+  | Urop (u, r1, r2) ->
+    Printf.sprintf "%s %s, %s" (urop_to_string u) (reg_to_string r1) (reg_to_string r2)
+  | Load (r1, r2) ->
+    Printf.sprintf "Load %s, %s" (reg_to_string r1) (reg_to_string r2)
+  | LoadI (n, r) ->
+    Printf.sprintf "LoadI %d, %s" n (reg_to_string r)
+  | Store (r1, r2) ->
+    Printf.sprintf "Store %s, %s" (reg_to_string r1) (reg_to_string r2)
+  | Jump l ->
+    Printf.sprintf "Jump %s" l
+  | CJump (r, l1, l2) ->
+    Printf.sprintf "CJump %s, %s, %s" (reg_to_string r) l1 l2
+
+(* Main function, given a program compile it into RISC code*)
+let compile (p: Mini_imp.program) (input_var: string) (output_var: string) (output_file: string): unit =
+  (* Compute the control flow graph *)
+  let program_cfg = Mini_imp_CFG.make_cfg p in
+  (* Translate the control flow graph into RISC cfg *)
+  let risc_cfg = translate_cfg program_cfg input_var output_var in
+  (* Write the RISC code by iterating over the nodes *)
+  let oc = open_out output_file in
+  List.iter (fun (node_id, node) ->
+    let label = label_of_node_id node_id in
+    let instructions = append_jump risc_cfg node_id node in
+    Printf.fprintf oc "%s:\n" label;
+    List.iter (fun instr -> Printf.fprintf oc "  %s\n" (string_of_instruction instr)) instructions
+  ) (NMap.bindings risc_cfg.nodes);
+  close_out oc
+
+let risc_cfg_to_string (cfg: risc_cfg) : string =
+  let reg_to_string r =
+    match r with
+    | Rin -> "Rin"
+    | Rout -> "Rout"
+    | Ra -> "Ra"
+    | Rb -> "Rb"
+    | RVar n -> Printf.sprintf "R%d" n
+  in
+  let brop_to_string b =
+    match b with
+    | Add -> "Add"
+    | Sub -> "Sub"
+    | Mult -> "Mult"
+    | And -> "And"
+    | Or -> "Or"
+    | Less -> "Less"
+  in
+  let biop_to_string b =
+    match b with
+    | AddI -> "AddI"
+    | SubI -> "SubI"
+    | MultI -> "MultI"
+    | AndI -> "AndI"
+    | OrI -> "OrI"
+  in
+  let urop_to_string u =
+    match u with
+    | Not -> "Not"
+    | Copy -> "Copy"
+  in
+  let instruction_to_string i =
+    match i with
+    | Nop -> "Nop"
+    | Brop (b, r1, r2, r3) ->
+      Printf.sprintf "%s %s, %s, %s" (brop_to_string b) (reg_to_string r1) (reg_to_string r2) (reg_to_string r3)
+    | Biop (b, r, n, r2) ->
+        Printf.sprintf "%s %s, %d, %s" (biop_to_string b) (reg_to_string r) n (reg_to_string r2)
+    | Urop (u, r1, r2) ->
+        Printf.sprintf "%s %s, %s" (urop_to_string u) (reg_to_string r1) (reg_to_string r2)
+    | Load (r1, r2) ->
+        Printf.sprintf "Load %s, %s" (reg_to_string r1) (reg_to_string r2)
+    | LoadI (n, r) ->
+        Printf.sprintf "LoadI %d, %s" n (reg_to_string r)
+    | Store (r1, r2) ->
+        Printf.sprintf "Store %s, %s" (reg_to_string r1) (reg_to_string r2)
+    | Jump l ->
+        Printf.sprintf "Jump %s" l
+    | CJump (r, l1, l2) ->
+        Printf.sprintf "CJump %s, %s, %s" (reg_to_string r) l1 l2
+  in
+  let node_to_string (node_id, node) =
+    let instrs_str = String.concat "\n  " (List.map instruction_to_string node.instructions) in
+    Printf.sprintf "Node %d:\n  %s" node_id instrs_str
+  in
+  let nodes_str = String.concat "\n\n" (List.map node_to_string (NMap.bindings cfg.nodes)) in
+  let edges_str = String.concat "\n" (List.map (fun (src, dst) ->
+    let dst_str = match dst with
+      | Mini_imp_CFG.Single n -> Printf.sprintf "Single %d" n
+      | Mini_imp_CFG.Pair (n1, n2) -> Printf.sprintf "Pair (%d, %d)" n1 n2
+    in
+    Printf.sprintf "Edge from %d to %s" src dst_str
+  ) (NMap.bindings cfg.edges)) in
+  Printf.sprintf "Initial: %d\nFinal: %d\n\nNodes:\n%s\n\nEdges:\n%s" cfg.initial cfg.final nodes_str edges_str
