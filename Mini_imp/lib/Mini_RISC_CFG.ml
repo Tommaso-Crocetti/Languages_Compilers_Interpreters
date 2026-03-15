@@ -1,14 +1,3 @@
-(* IMPORTANT! ASK IF BOOLEAN SHORT-CIRCUIT EVALUATION CAN BE IMPLEMENTED (unneccessary AndI?) *)
-
-(* TODO: 
-  1. Remove unnecessary result registers by reusing the final computation register + temporary registers when possible
-  2. Comment the code 
-  3. (Done!) Check if @ can be avoided -> (possible, but makes the code more complex and less readable)
-  4. Think about how input and output variables names are associated with Rin and Rout
-  5. (Done!) Check if same variable in different nodes are associated with the same register
-  6. (Done!) RISC-cfg -> RISC code
-*)
-
 module NMap = Mini_imp_CFG.NMap
 
 module StrOrd : Map.OrderedType with type t = string = struct
@@ -435,7 +424,7 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
 let label_of_node_id (node_id: int) : string =
   if node_id = 0 then "main" else Printf.sprintf "l%d" node_id
 
-(* Helper function that appends a jump representing the outgoing edge of the node *)
+(* Helper function that appends a jump instruction representing the outgoing edge of the node *)
 let append_jump (cfg: risc_cfg) (node_id: int) (node: risc_node) : instruction list =
   match NMap.find_opt node_id cfg.edges with
   (* If there is no outgoing edge, the final node has been reached *)
@@ -451,130 +440,3 @@ let append_jump (cfg: risc_cfg) (node_id: int) (node: risc_node) : instruction l
       node.instructions @ [CJump (cond_reg, label_of_node_id left_node, label_of_node_id right_node)]
     | None ->
       failwith (Printf.sprintf "Cannot emit CJump for node %d: no guard register found" node_id))
-
-let string_of_instruction (instr: instruction) : string =
-  let reg_to_string = function
-    | Rin -> "Rin"
-    | Rout -> "Rout"
-    | Ra -> "Ra"
-    | Rb -> "Rb"
-    | RVar n -> Printf.sprintf "R%d" n
-  in
-  let brop_to_string = function
-    | Add -> "Add"
-    | Sub -> "Sub"
-    | Mult -> "Mult"
-    | And -> "And"
-    | Or -> "Or"
-    | Less -> "Less"
-  in
-  let biop_to_string = function
-    | AddI -> "AddI"
-    | SubI -> "SubI"
-    | MultI -> "MultI"
-    | AndI -> "AndI"
-    | OrI -> "OrI"
-  in
-  let urop_to_string = function
-    | Not -> "Not"
-    | Copy -> "Copy"
-  in
-  match instr with
-  | Nop -> "Nop"
-  | Brop (b, r1, r2, r3) ->
-    Printf.sprintf "%s %s, %s, %s" (brop_to_string b) (reg_to_string r1) (reg_to_string r2) (reg_to_string r3)
-  | Biop (b, r, n, r2) ->
-    Printf.sprintf "%s %s, %d, %s" (biop_to_string b) (reg_to_string r) n (reg_to_string r2)
-  | Urop (u, r1, r2) ->
-    Printf.sprintf "%s %s, %s" (urop_to_string u) (reg_to_string r1) (reg_to_string r2)
-  | Load (r1, r2) ->
-    Printf.sprintf "Load %s, %s" (reg_to_string r1) (reg_to_string r2)
-  | LoadI (n, r) ->
-    Printf.sprintf "LoadI %d, %s" n (reg_to_string r)
-  | Store (r1, r2) ->
-    Printf.sprintf "Store %s, %s" (reg_to_string r1) (reg_to_string r2)
-  | Jump l ->
-    Printf.sprintf "Jump %s" l
-  | CJump (r, l1, l2) ->
-    Printf.sprintf "CJump %s, %s, %s" (reg_to_string r) l1 l2
-
-(* Main function, given a program compile it into RISC code*)
-let compile (p: Mini_imp.program) (input_var: string) (output_var: string) (output_file: string): unit =
-  (* Compute the control flow graph *)
-  let program_cfg = Mini_imp_CFG.make_cfg p in
-  (* Translate the control flow graph into RISC cfg *)
-  let risc_cfg = translate_cfg program_cfg input_var output_var in
-  (* Write the RISC code by iterating over the nodes *)
-  let oc = open_out output_file in
-  List.iter (fun (node_id, node) ->
-    let label = label_of_node_id node_id in
-    let instructions = append_jump risc_cfg node_id node in
-    Printf.fprintf oc "%s:\n" label;
-    List.iter (fun instr -> Printf.fprintf oc "  %s\n" (string_of_instruction instr)) instructions
-  ) (NMap.bindings risc_cfg.nodes);
-  close_out oc
-
-let risc_cfg_to_string (cfg: risc_cfg) : string =
-  let reg_to_string r =
-    match r with
-    | Rin -> "Rin"
-    | Rout -> "Rout"
-    | Ra -> "Ra"
-    | Rb -> "Rb"
-    | RVar n -> Printf.sprintf "R%d" n
-  in
-  let brop_to_string b =
-    match b with
-    | Add -> "Add"
-    | Sub -> "Sub"
-    | Mult -> "Mult"
-    | And -> "And"
-    | Or -> "Or"
-    | Less -> "Less"
-  in
-  let biop_to_string b =
-    match b with
-    | AddI -> "AddI"
-    | SubI -> "SubI"
-    | MultI -> "MultI"
-    | AndI -> "AndI"
-    | OrI -> "OrI"
-  in
-  let urop_to_string u =
-    match u with
-    | Not -> "Not"
-    | Copy -> "Copy"
-  in
-  let instruction_to_string i =
-    match i with
-    | Nop -> "Nop"
-    | Brop (b, r1, r2, r3) ->
-      Printf.sprintf "%s %s, %s, %s" (brop_to_string b) (reg_to_string r1) (reg_to_string r2) (reg_to_string r3)
-    | Biop (b, r, n, r2) ->
-        Printf.sprintf "%s %s, %d, %s" (biop_to_string b) (reg_to_string r) n (reg_to_string r2)
-    | Urop (u, r1, r2) ->
-        Printf.sprintf "%s %s, %s" (urop_to_string u) (reg_to_string r1) (reg_to_string r2)
-    | Load (r1, r2) ->
-        Printf.sprintf "Load %s, %s" (reg_to_string r1) (reg_to_string r2)
-    | LoadI (n, r) ->
-        Printf.sprintf "LoadI %d, %s" n (reg_to_string r)
-    | Store (r1, r2) ->
-        Printf.sprintf "Store %s, %s" (reg_to_string r1) (reg_to_string r2)
-    | Jump l ->
-        Printf.sprintf "Jump %s" l
-    | CJump (r, l1, l2) ->
-        Printf.sprintf "CJump %s, %s, %s" (reg_to_string r) l1 l2
-  in
-  let node_to_string (node_id, node) =
-    let instrs_str = String.concat "\n  " (List.map instruction_to_string node.instructions) in
-    Printf.sprintf "Node %d:\n  %s" node_id instrs_str
-  in
-  let nodes_str = String.concat "\n\n" (List.map node_to_string (NMap.bindings cfg.nodes)) in
-  let edges_str = String.concat "\n" (List.map (fun (src, dst) ->
-    let dst_str = match dst with
-      | Mini_imp_CFG.Single n -> Printf.sprintf "Single %d" n
-      | Mini_imp_CFG.Pair (n1, n2) -> Printf.sprintf "Pair (%d, %d)" n1 n2
-    in
-    Printf.sprintf "Edge from %d to %s" src dst_str
-  ) (NMap.bindings cfg.edges)) in
-  Printf.sprintf "Initial: %d\nFinal: %d\n\nNodes:\n%s\n\nEdges:\n%s" cfg.initial cfg.final nodes_str edges_str

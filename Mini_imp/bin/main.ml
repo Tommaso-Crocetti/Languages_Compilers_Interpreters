@@ -22,19 +22,23 @@ let () =
   | Some path ->
       (match !output_file with
       | Some out ->
-          let ic = open_in path in
-          let lexbuf = Lexing.from_channel ic in
-          let program = Mini_imp_Parser.prg Mini_imp_Lexer.read lexbuf in
-          close_in ic;
-          Mini_RISC.compile program program.input program.output out;
-          Printf.printf "Compiled %s -> %s\n" path out
-      | None ->
-          Mini_imp_Interpreter.run_program
+          Mini_imp_Frontend.analyze_and_compile_file
             ~show_tokens:!show_tokens
             ~show_ast:!show_ast
             ~show_cfg:!show_cfg
             ~show_risc_cfg:!show_risc_cfg
-            path)
+            path out;
+          Printf.printf "Compiled %s -> %s\n" path out
+      | None ->
+          let program =
+            Mini_imp_Frontend.analyze_file
+              ~show_tokens:!show_tokens
+              ~show_ast:!show_ast
+              ~show_cfg:!show_cfg
+              ~show_risc_cfg:!show_risc_cfg
+              path
+          in
+          Mini_imp_Interpreter.run_program program)
   | None ->
       prerr_endline usage;
       exit 1

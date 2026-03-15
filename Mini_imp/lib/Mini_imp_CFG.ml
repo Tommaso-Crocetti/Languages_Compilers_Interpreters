@@ -257,23 +257,3 @@ let make_cfg (p: Mini_imp.program) : cfg =
         cfg'
         pending_final_nodes
     else cfg'
-
-let cfg_to_string (g: cfg) : string =
-    let node_str (id: int) (stmts: statement list) : string =
-        let stmts_str = List.map (function
-        | Skip -> "Skip"
-        | Assign (x, a) -> "Assign(" ^ x ^ ", " ^ Mini_imp.aexp_to_string a ^ ")"
-        | Guard b -> "Guard(" ^ Mini_imp.bexp_to_string b ^ ")"
-        ) stmts in
-        string_of_int id ^ ": " ^ String.concat "; " stmts_str
-    in
-    let edge_str (src: int) (dst: out_node) : string =
-        let dst_str = match dst with
-        | Single n -> string_of_int n
-        | Pair (id1, id2) -> "(" ^ string_of_int id1 ^ ", " ^ string_of_int id2 ^ ")"
-        in
-        string_of_int src ^ " -> " ^ dst_str
-    in
-    let nodes_str = NMap.bindings g.nodes |> List.map (fun (id, stmts) -> node_str id stmts) |> String.concat "\n" in
-    let edges_str = NMap.bindings g.edges |> List.map (fun (src, dst) -> edge_str src dst) |> String.concat "\n" in
-    "Nodes:\n" ^ nodes_str ^ "\nEdges:\n" ^ edges_str
