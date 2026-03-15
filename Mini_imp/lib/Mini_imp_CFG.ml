@@ -32,11 +32,6 @@ let empty_cfg : cfg =
     final = [0];
   }
 
-let get_node (g: cfg) (id: int) : statement list =
-  match NMap.find_opt id g.nodes with
-  | Some stmts -> stmts
-  | None -> failwith ("Node with id " ^ string_of_int id ^ " not found in CFG.")
-
 (** Adds a new node to the CFG with the given statements, always ensuring that it is the final node *)
 let add_node (g: cfg) (stmts: statement list) : cfg =
   let id = fresh_id () in

@@ -2,7 +2,7 @@
 
 (* TODO: 
   1. Remove unnecessary result registers by reusing the final computation register
-  3. Check if @ can be avoided
+  3. / Check if @ can be avoided (possible, but makes the code more complex and less readable)
   4. Think about how input and output variables names are associated with Rin and Rout
   5. Check if same variable in different nodes are associated with the same register
 *)
@@ -15,6 +15,8 @@ module StrOrd : Map.OrderedType with type t = string = struct
 end
 
 module SMap = Map.Make(StrOrd)
+
+module ISet = Set.Make(struct type t = int let compare = compare end)
 
 type reg = Rin | Rout | RVar of int
 
@@ -49,6 +51,13 @@ type risc_cfg =
     final: int;
   }
 
+let empty_risc_cfg : risc_cfg = 
+  {
+    nodes = NMap.empty;
+    edges = NMap.empty;
+    initial = 0;
+    final = 0;
+  }
 
 (** Helper function to generate a fresh register *)
 let fresh_reg : unit -> reg =
@@ -302,8 +311,8 @@ let rec translate_bexpr (e : Mini_imp.b_exp) (reg_map : var_to_reg): reg * instr
     )
 
 (* Function that translates a list of statements into a list of RISC instructions *)
-let translate_block (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list =
-  let (code, _) = List.fold_left (fun (acc, curr_reg_map) stmt ->
+let translate_block (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list * var_to_reg =
+  List.fold_left (fun (acc, curr_reg_map) stmt ->
     match stmt with
     (* Skip -> Nop *)
     | Mini_imp_CFG.Skip -> (acc @ [Nop], curr_reg_map)
@@ -323,11 +332,66 @@ let translate_block (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) :
     | Mini_imp_CFG.Guard (b) ->
       let (_, code) = translate_bexpr b curr_reg_map in
       (acc @ code, curr_reg_map)
-  ) ([], reg_map) stmts in
-  code
+  ) ([], reg_map) stmts
+
+let add_node (g: risc_cfg) (node_id: int) (code: instruction list) : risc_cfg =
+  { g with nodes = NMap.add node_id code g.nodes }
+
+let add_edge (g: risc_cfg) (src: int) (dst: Mini_imp_CFG.out_node) : risc_cfg =
+  { g with edges = NMap.add src dst g.edges } 
+
+let pair_join_node (cfg: Mini_imp_CFG.cfg) (left_node: int) (right_node: int) : int option =
+  match NMap.find_opt left_node cfg.edges, NMap.find_opt right_node cfg.edges with
+  | Some (Mini_imp_CFG.Single left_next), Some (Mini_imp_CFG.Single right_next)
+    when left_next = right_next -> Some left_next
+  | _ -> None
+
 
 (* Main function, translates a control flow graph to a RISC control flow graph *)
 let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string): risc_cfg =
-  let reg_map = initial_reg_map input_var output_var in
-  let nodes = NMap.map (fun stmts -> translate_block stmts reg_map) g.nodes in
-  { nodes; edges = g.edges; initial = g.initial; final = List.hd g.final }
+  let initial_reg_map = initial_reg_map input_var output_var in
+  let rec rec_translate_cfg
+    (cfg: Mini_imp_CFG.cfg)
+    (risc_cfg: risc_cfg)
+    (node_id: int)
+    (visited: ISet.t)
+    (curr_reg_map: var_to_reg)
+    (stop_before: int option)
+    : risc_cfg * ISet.t * var_to_reg =
+    if stop_before = Some node_id then (risc_cfg, visited, curr_reg_map)
+    else if ISet.mem node_id visited then (risc_cfg, visited, curr_reg_map)
+    else
+      let visited = ISet.add node_id visited in
+      let instructions, next_reg_map = translate_block (NMap.find node_id cfg.nodes) curr_reg_map in
+      let risc_cfg = add_node risc_cfg node_id instructions in
+      match NMap.find_opt node_id cfg.edges with
+      | None -> (risc_cfg, visited, next_reg_map)
+      | Some out_edge ->
+        let risc_cfg = add_edge risc_cfg node_id out_edge in
+        (match out_edge with
+        | Mini_imp_CFG.Single next_node ->
+          if ISet.mem next_node visited then (risc_cfg, visited, next_reg_map)
+          else rec_translate_cfg cfg risc_cfg next_node visited next_reg_map stop_before
+        | Mini_imp_CFG.Pair (left_node, right_node) ->
+          let join_node = pair_join_node cfg left_node right_node in
+          let (risc_cfg, visited, _left_reg_map) = 
+            if ISet.mem left_node visited then (risc_cfg, visited, next_reg_map)
+            else rec_translate_cfg cfg risc_cfg left_node visited next_reg_map join_node in
+          let (risc_cfg, visited, _right_reg_map) = 
+            if ISet.mem right_node visited then (risc_cfg, visited, next_reg_map)
+            else rec_translate_cfg cfg risc_cfg right_node visited next_reg_map join_node in
+          (match join_node with
+          | Some join_id when not (ISet.mem join_id visited) ->
+            rec_translate_cfg cfg risc_cfg join_id visited next_reg_map stop_before
+          | _ ->
+            (risc_cfg, visited, next_reg_map))
+        )
+  in
+  let initial_final =
+    match g.final with
+    | n :: _ -> n
+    | [] -> g.initial
+  in
+  let seed_cfg = { empty_risc_cfg with initial = g.initial; final = initial_final } in
+  let (risc_cfg, _, _) = rec_translate_cfg g seed_cfg g.initial ISet.empty initial_reg_map None in
+  risc_cfg

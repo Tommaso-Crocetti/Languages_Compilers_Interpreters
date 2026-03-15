@@ -108,6 +108,48 @@ let assert_translation name expr expected =
          (string_of_instructions expected)
          (string_of_instructions actual))
 
+let find_unique_loadi_reg cfg value =
+  let matches =
+    cfg.Mini_RISC.nodes
+    |> Mini_imp_CFG.NMap.bindings
+    |> List.filter_map (fun (_node_id, code) ->
+         match code with
+         | [Mini_RISC.LoadI (n, reg)] when n = value -> Some reg
+         | _ -> None)
+  in
+  match matches with
+  | [reg] -> reg
+  | [] -> failwith (Printf.sprintf "no unique LoadI node found for constant %d" value)
+  | _ -> failwith (Printf.sprintf "multiple LoadI nodes found for constant %d" value)
+
+let assert_distinct_regs name left right =
+  if left = right then
+    failwith
+      (Printf.sprintf
+         "scope test '%s' failed\nexpected distinct registers\nactual: %s = %s"
+         name
+         (string_of_reg left)
+         (string_of_reg right))
+
+let run_cfg_scope_tests () =
+  let open Mini_imp in
+  let if_prog =
+    make_program
+      "input"
+      "output"
+      (seq
+         (if_
+            (minor (var "input") (aval 0))
+            (assign "tmp" (aval 41))
+            skip)
+         (assign "tmp" (aval 99)))
+  in
+  let if_cfg = Mini_imp_CFG.make_cfg if_prog in
+  let if_risc = Mini_RISC.translate_cfg if_cfg "input" "output" in
+  let then_reg = find_unique_loadi_reg if_risc 41 in
+  let join_reg = find_unique_loadi_reg if_risc 99 in
+  assert_distinct_regs "if local does not escape join" then_reg join_reg
+
 let run_translation_tests () =
   let open Mini_imp in
   let tests = [
@@ -133,7 +175,7 @@ let run_translation_tests () =
       minus (aval 4) (var "input"),
       [
         Mini_RISC.LoadI (4, Mini_RISC.RVar 1);
-        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.RVar 1, Mini_RISC.Rin, Mini_RISC.RVar 2);
+        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.RVar 1, Mini_RISC.Rin, Mini_RISC.RVar 1);
       ] );
     ( "minus expr var",
       minus (plus (var "input") (aval 2)) (var "input"),
@@ -256,6 +298,7 @@ let run_program_file dir fname =
   counts
 
 let () =
+  run_cfg_scope_tests ();
   run_translation_tests ();
 
   if not (Sys.file_exists programs_dir && Sys.is_directory programs_dir) then
