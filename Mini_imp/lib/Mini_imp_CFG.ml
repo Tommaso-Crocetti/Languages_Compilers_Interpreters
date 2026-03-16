@@ -3,7 +3,7 @@ type statement =
   | Assign of Mini_imp_Interpreter.var * Mini_imp_Interpreter.a_exp
   | Guard of Mini_imp_Interpreter.b_exp
 
-type out_node = 
+type out_node =
   | Single of int
   | Pair of int * int
 

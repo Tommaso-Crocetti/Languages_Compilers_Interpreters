@@ -61,12 +61,14 @@ let fresh_reg : unit -> reg =
 
 let default_temp_regs = [Ra; Rb]
 
+(* Helper function to choose the result register *)
 let choose_result_reg (target_reg : reg option) (temp_regs : reg list) : reg =
   match target_reg, temp_regs with
   | Some reg, _ -> reg
   | None, reg :: _ -> reg
   | None, [] -> fresh_reg ()
 
+(* Helper function to remove a reserved register from the list of temporary registers *)
 let available_temp_regs (reserved_reg : reg) (temp_regs : reg list) : reg list =
   List.filter (fun reg -> reg <> reserved_reg) temp_regs
 
@@ -112,7 +114,11 @@ and translate_commutative_aexpr (brop : brop) (biop : biop)
   match (a1, a2) with
   (* n1 op n2, insert the first constant inside the target register and perform a biop *)
   | (Mini_imp_Interpreter.Aval n1, Mini_imp_Interpreter.Aval n2) ->
-    (result_reg, [LoadI (n1, result_reg); Biop (biop, result_reg, n2, result_reg)])
+    (match brop with
+    | Add -> (result_reg, [LoadI (n1 + n2, result_reg)])
+    | Mult -> (result_reg, [LoadI (n1 * n2, result_reg)])
+    | _ -> failwith "Unsupported binary operation"
+    )
   (* n op a / a op n, different cases can be considered *)
   | (Mini_imp_Interpreter.Aval n, a) | (a, Mini_imp_Interpreter.Aval n) ->
     (match (brop, a, n) with
@@ -133,21 +139,30 @@ and translate_commutative_aexpr (brop : brop) (biop : biop)
       let (_, code) = translate_aexpr a (Some result_reg) nested_temp_regs reg_map in
       (result_reg, code @ [Biop (biop, result_reg, n, result_reg)])
     )
-  (* x op a, translate the arithmetic expression and perform a brop *)
-  | (Mini_imp_Interpreter.Var x, a2) ->
+  (* x op y, translate both variables and perform a brop *)
+  | (Mini_imp_Interpreter.Var x, Mini_imp_Interpreter.Var y) ->
+    let x_reg = SMap.find x reg_map in
+    let y_reg = SMap.find y reg_map in
+    (result_reg, [Brop (brop, x_reg, y_reg, result_reg)])
+  (* x op a / a op x, translate the arithmetic expression and perform a brop *)
+  | (Mini_imp_Interpreter.Var x, a) | (a, Mini_imp_Interpreter.Var x) ->
     let base_reg = SMap.find x reg_map in
-    let (t2, code2) = translate_aexpr a2 None nested_temp_regs reg_map in
-    (result_reg, code2 @ [Brop (brop, base_reg, t2, result_reg)])
-  (* a op x, translate the arithmetic expression and perform a brop *)
-  | (a1, Mini_imp_Interpreter.Var x) ->
-    let (_, code1) = translate_aexpr a1 (Some result_reg) nested_temp_regs reg_map in
-    let base_reg = SMap.find x reg_map in
-    (result_reg, code1 @ [Brop (brop, result_reg, base_reg, result_reg)])
+    (* x := x op a / x := a op x, a should be computed in a temporary register *)
+    if base_reg = result_reg then
+      let temp_reg = choose_result_reg None nested_temp_regs in
+      let (_, code) = translate_aexpr a (Some temp_reg) nested_temp_regs reg_map in
+      (result_reg, code @ [Brop (brop, base_reg, temp_reg, result_reg)])
+    (* Otherwise, translate the arithmetic expression in the result register *)
+    else
+      let (_, code2) = translate_aexpr a (Some result_reg) nested_temp_regs reg_map in
+      (result_reg, code2 @ [Brop (brop, base_reg, result_reg, result_reg)])
   (* a1 op a2, recursively translate both and perform a brop *)
   | (a1, a2) ->
-    let (_, code1) = translate_aexpr a1 (Some result_reg) nested_temp_regs reg_map in
-    let (t2, code2) = translate_aexpr a2 None nested_temp_regs reg_map in
-    (result_reg, code1 @ code2 @ [Brop (brop, result_reg, t2, result_reg)])
+    let (t1, code1) = translate_aexpr a1 None nested_temp_regs reg_map in
+    (* Exclude t1 from available registers so code2 cannot overwrite it *)
+    let code2_temp_regs = available_temp_regs t1 nested_temp_regs in
+    let (_, code2) = translate_aexpr a2 (Some result_reg) code2_temp_regs reg_map in
+    (result_reg, code1 @ code2 @ [Brop (brop, t1, result_reg, result_reg)])
 
 (* Helper function to translate subtraction of arithmetic expressions *)
 and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
@@ -156,9 +171,9 @@ and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
   let result_reg = choose_result_reg target_reg temp_regs in
   let nested_temp_regs = available_temp_regs result_reg temp_regs in
   match (a1, a2) with
-  (* n1 - n2, insert the first constant inside the result register and perform a biop *)
+  (* Short circuit: load n1 - n2 *)
   | (Mini_imp_Interpreter.Aval n1, Mini_imp_Interpreter.Aval n2) ->
-    (result_reg, [LoadI (n1, result_reg); Biop (SubI, result_reg, n2, result_reg)])
+    (result_reg, [LoadI (n1 - n2, result_reg)])
   (* _ - 0, translate the first operand *)
   | (a, Mini_imp_Interpreter.Aval 0) ->
     translate_aexpr a (Some result_reg) nested_temp_regs reg_map
@@ -172,19 +187,18 @@ and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
     (result_reg, code @ [Biop (SubI, result_reg, n, result_reg)])
   (* n - x, load the constant and perform a brop *)
   | (Mini_imp_Interpreter.Aval n, Mini_imp_Interpreter.Var x) ->
-    (* If base_reg = result_reg we must load n into a temp register first, otherwise
-    LoadI would overwrite x's value before the subtraction reads it. *)
     let base_reg = SMap.find x reg_map in
+    (* x := n - x, load n into a temp register first *)
     if base_reg = result_reg then
-      match nested_temp_regs with
-      | temp :: _ -> (result_reg, [LoadI (n, temp); Brop (Sub, temp, base_reg, result_reg)])
-      | [] -> failwith "translate_minus_aexpr: no temp registers available for n - x"
+      let temp_reg = choose_result_reg None nested_temp_regs in
+      (result_reg, [LoadI (n, temp_reg); Brop (Sub, temp_reg, base_reg, result_reg)])
+    (* Otherwise, load n into the result register *)
     else
       (result_reg, [LoadI (n, result_reg); Brop (Sub, result_reg, base_reg, result_reg)])
   (* n - a, load the constant, translate the arithmetic expression and perform a brop *)
   | (Mini_imp_Interpreter.Aval n, a) ->
     let (t, code) = translate_aexpr a None nested_temp_regs reg_map in
-    (result_reg, [LoadI (n, result_reg)] @ code @ [Brop (Sub, result_reg, t, result_reg)])
+    (result_reg, code @ [LoadI (n, result_reg) ; Brop (Sub, result_reg, t, result_reg)])
   (* x - y, directly perform a brop *)
   | (Mini_imp_Interpreter.Var x, Mini_imp_Interpreter.Var y) ->
     let x_reg = SMap.find x reg_map in
@@ -193,29 +207,45 @@ and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
   (* x - a, translate the arithmetic expression and perform a brop *)
   | (Mini_imp_Interpreter.Var x, a) ->
     let base_reg = SMap.find x reg_map in
-    let (t, code) = translate_aexpr a None nested_temp_regs reg_map in
-    (result_reg, code @ [Brop (Sub, base_reg, t, result_reg)])
+    (* x := x - a, a should be computed in a different register than the one of x *)
+    if base_reg = result_reg then
+      let temp_reg = choose_result_reg None nested_temp_regs in
+      let (t, code) = translate_aexpr a (Some temp_reg) nested_temp_regs reg_map in
+      (result_reg, code @ [Brop (Sub, base_reg, temp_reg, result_reg)])
+    (* Otherwise, compute a in result_reg *)
+    else
+    let (_, code) = translate_aexpr a (Some result_reg) nested_temp_regs reg_map in
+    (result_reg, code @ [Brop (Sub, base_reg, result_reg, result_reg)])
   (* a - x, translate the arithmetic expression and perform a brop *)
   | (a, Mini_imp_Interpreter.Var x) ->
-    let (_, code) = translate_aexpr a (Some result_reg) nested_temp_regs reg_map in
     let base_reg = SMap.find x reg_map in
-    (result_reg, code @ [Brop (Sub, result_reg, base_reg, result_reg)])
-  (* a1 - a2, translate both operands and perform a brop *)
-  | (left, right) ->
-    let (_, code1) = translate_aexpr left (Some result_reg) nested_temp_regs reg_map in
-    let (t2, code2) = translate_aexpr right None nested_temp_regs reg_map in
-    (result_reg, code1 @ code2 @ [Brop (Sub, result_reg, t2, result_reg)])
+    (* x := a - x, a should be computed in a different register than the one of x *)
+    if base_reg = result_reg then
+      let temp_reg = choose_result_reg None nested_temp_regs in
+      let (_, code) = translate_aexpr a (Some temp_reg) nested_temp_regs reg_map in
+      (result_reg, code @ [Brop (Sub, temp_reg, base_reg, result_reg)])
+    (* Otherwise, compute a in result_reg *)
+    else  
+      let (_, code) = translate_aexpr a (Some result_reg) nested_temp_regs reg_map in
+      (result_reg, code @ [Brop (Sub, result_reg, base_reg, result_reg)])
+    (* a1 - a2, translate both operands and perform a brop *)
+  | (a1, a2) ->
+    let (t1, code1) = translate_aexpr a1 None nested_temp_regs reg_map in
+    (* Exclude t1 from the temp regs available to code2 so code2 cannot overwrite it *)
+    let code2_temp_regs = available_temp_regs t1 nested_temp_regs in
+    let (_, code2) = translate_aexpr a2 (Some result_reg) code2_temp_regs reg_map in
+    (result_reg, code1 @ code2 @ [Brop (Sub, t1, result_reg, result_reg)])
 
 (* Recursive function that translate boolean expressions *)
 let rec translate_bexpr
-  (e : Mini_imp_Interpreter.b_exp)
+  (bexp : Mini_imp_Interpreter.b_exp)
   (target_reg : reg option)
   (temp_regs : reg list)
   (reg_map : var_to_reg)
   : reg * instruction list =
   let result_reg = choose_result_reg target_reg temp_regs in
   let nested_temp_regs = available_temp_regs result_reg temp_regs in
-  match e with
+  match bexp with
   (* Base case: boolean value, load the corresponding immediate in the result register *)
   | Mini_imp_Interpreter.Bval v ->
     if v then (result_reg, [LoadI (1, result_reg)]) else (result_reg, [LoadI (0, result_reg)])
@@ -312,12 +342,12 @@ let rec translate_bexpr
     )
 
 (* Function that translates a list of statements into a list of RISC instructions *)
-let translate_stmts (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list * var_to_reg * reg option =
-  let rev_instruction_list, final_reg_map, final_guard_reg_opt =
-    List.fold_left (fun (acc, curr_reg_map, guard_reg_opt) stmt ->
+let translate_stmts (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) : instruction list * var_to_reg =
+  let rev_instruction_list, final_reg_map =
+    List.fold_left (fun (acc, curr_reg_map) stmt ->
       match stmt with
       (* Skip -> Nop *)
-      | Mini_imp_CFG.Skip -> ([Nop] :: acc, curr_reg_map, guard_reg_opt)
+      | Mini_imp_CFG.Skip -> ([Nop] :: acc, curr_reg_map)
       (* For assignements, translate the right-hand side,
       storing the result in the register associated to the variable *)
       | Mini_imp_CFG.Assign (x, a) ->
@@ -329,17 +359,17 @@ let translate_stmts (stmts: Mini_imp_CFG.statement list) (reg_map: var_to_reg) :
               (xr, SMap.add x xr curr_reg_map)
         in
         let (_, rhs_code) = translate_aexpr a (Some x_reg) default_temp_regs curr_reg_map in
-        (rhs_code :: acc, next_reg_map, guard_reg_opt)
-      (* For guards, simply translate the boolean expression and link the guard register *)
+        (rhs_code :: acc, next_reg_map)
+      (* Guards are always evaluated into Ra for the following conditional jump. *)
       | Mini_imp_CFG.Guard (b) ->
-        let (guard_reg, code) = translate_bexpr b (Some Ra) [Rb] curr_reg_map in
-        (code :: acc, curr_reg_map, Some guard_reg)
-    ) ([], reg_map, None) stmts
+        let (_, code) = translate_bexpr b (Some Ra) [Rb] curr_reg_map in
+        (code :: acc, curr_reg_map)
+    ) ([], reg_map) stmts
   in
-  (List.concat (List.rev rev_instruction_list), final_reg_map, final_guard_reg_opt)
+  (List.concat (List.rev rev_instruction_list), final_reg_map)
 
 (* Helper function that adds a node to the RISC CFG *)
-let add_node (g: risc_cfg) (node_id: int) (code: instruction list) (guard_reg_opt: reg option) : risc_cfg =
+let add_node (g: risc_cfg) (node_id: int) (code: instruction list) : risc_cfg =
   { g with nodes = NMap.add node_id code g.nodes }
 
 (* Helper function that adds an edge to the RISC CFG *)
@@ -358,22 +388,20 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
     (stop_before: int option)  (* Optional node Id to stop before, used for managing join nodes *)
     : risc_cfg * ISet.t * var_to_reg =
     (* Upon reaching the stop node or an already visited node, stop the visit *)
-    if stop_before = Some node_id then (risc_cfg, visited, curr_reg_map)
-    else if ISet.mem node_id visited then (risc_cfg, visited, curr_reg_map)
+    if stop_before = Some node_id || ISet.mem node_id visited then (risc_cfg, visited, curr_reg_map)
     else
       (* Add the current node to the visited set and translate the block *)
       let visited = ISet.add node_id visited in
-      let instructions, next_reg_map, guard_reg_opt = translate_stmts (NMap.find node_id cfg.nodes) curr_reg_map in
+      let instructions, next_reg_map = translate_stmts (NMap.find node_id cfg.nodes) curr_reg_map in
       (* Add the corresponding RISC node and the edges to the RISC CFG *)
-      let risc_cfg = add_node risc_cfg node_id instructions guard_reg_opt in
+      let risc_cfg = add_node risc_cfg node_id instructions in
       match NMap.find_opt node_id cfg.edges with
       (* If there is no outgoing edge, the final node has been reached *)
       | None -> (risc_cfg, visited, next_reg_map)
       | Some out_edge ->
         let risc_cfg = add_edge risc_cfg node_id out_edge in
         (match out_edge with
-        (* If the outgoing edge point to a single node, sequentially continue the visit,
-        preserving the current register map and stop node *)
+        (* If the outgoing edge point to a single node, sequentially continue the visit *)
         | Mini_imp_CFG.Single next_node ->
           rec_translate_cfg cfg risc_cfg next_node visited next_reg_map stop_before
         (* If the outgoing edge is a pair of nodes, visit the left branch until the
@@ -383,7 +411,7 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
           let (risc_cfg, visited, next_reg_map) = 
             rec_translate_cfg cfg risc_cfg left_node visited next_reg_map (Some right_node) in
           (* Then visit the right node, that is the initial node of the else branch
-          or the while guard (currently visited) *)
+          or the while continuation *)
           rec_translate_cfg cfg risc_cfg right_node visited next_reg_map stop_before
         )
   in
