@@ -13,7 +13,7 @@
 let compile_from_cfg (program_cfg : Mini_imp_CFG.cfg) (input_var : string) (output_var : string)
     (output_file: string): unit =
   (* Translate the control flow graph into RISC cfg *)
-  let risc_cfg = Mini_RISC_CFG.translate_cfg program_cfg input_var output_var in
+  let (risc_cfg, final_reg_map) = Mini_RISC_CFG.translate_cfg program_cfg input_var output_var in
   (* Write the RISC code by iterating over the nodes *)
   let oc = open_out output_file in
   List.iter (fun (node_id, node) ->
@@ -24,11 +24,12 @@ let compile_from_cfg (program_cfg : Mini_imp_CFG.cfg) (input_var : string) (outp
       (fun instr -> Printf.fprintf oc "  %s\n" (Mini_imp_Printer.string_of_risc_instruction instr))
       instructions
   ) (Mini_RISC_CFG.NMap.bindings risc_cfg.nodes);
-  close_out oc
+  close_out oc;
+  Printf.printf "Final register map: %s\n" (Mini_imp_Printer.reg_map_to_string final_reg_map)
 
-let compile (p: Mini_imp.program) (_input_var: string) (_output_var: string) (output_file: string): unit =
+let compile (p: Mini_imp_Interpreter.program) (_input_var: string) (_output_var: string) (output_file: string): unit =
   let program_cfg = Mini_imp_CFG.make_cfg p in
   compile_from_cfg program_cfg p.input p.output output_file
 
-let compile_program (program : Mini_imp.program) (output_file : string) : unit =
+let compile_program (program : Mini_imp_Interpreter.program) (output_file : string) : unit =
   compile program program.input program.output output_file

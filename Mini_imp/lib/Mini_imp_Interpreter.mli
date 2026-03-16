@@ -52,12 +52,8 @@ val while_ : b_exp -> command -> command
 
 val make_program : var -> var -> command -> program
 
-val eval_a : a_exp -> state -> int
-val eval_b : b_exp -> state -> bool
-val eval_c : command -> state -> state
+val eval_aexp : a_exp -> state -> int
+val eval_bexp : b_exp -> state -> bool
 val execute : program -> int -> int
 
-val aexp_to_string : a_exp -> string
-val bexp_to_string : b_exp -> string
-val command_to_string : command -> string
-val program_to_string : program -> string
+val run_program : program -> unit

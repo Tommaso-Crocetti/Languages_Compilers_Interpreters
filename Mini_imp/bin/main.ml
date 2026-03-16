@@ -22,7 +22,7 @@ let () =
   | Some path ->
       (match !output_file with
       | Some out ->
-          Mini_imp_Frontend.analyze_and_compile_file
+          Mini_imp_FlagHandler.analyze_and_compile_file
             ~show_tokens:!show_tokens
             ~show_ast:!show_ast
             ~show_cfg:!show_cfg
@@ -31,7 +31,7 @@ let () =
           Printf.printf "Compiled %s -> %s\n" path out
       | None ->
           let program =
-            Mini_imp_Frontend.analyze_file
+            Mini_imp_FlagHandler.analyze_file
               ~show_tokens:!show_tokens
               ~show_ast:!show_ast
               ~show_cfg:!show_cfg

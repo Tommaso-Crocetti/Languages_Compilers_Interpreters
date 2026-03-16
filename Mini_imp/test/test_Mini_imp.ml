@@ -102,7 +102,7 @@ let normalize_instructions code =
 
 let assert_translation name expr expected =
   let reg_map = Mini_RISC_CFG.initial_reg_map "input" "output" in
-  let (_, actual) = Mini_RISC_CFG.translate_aexpr expr None reg_map in
+  let (_, actual) = Mini_RISC_CFG.translate_aexpr expr None [Mini_RISC_CFG.Ra; Mini_RISC_CFG.Rb] reg_map in
   let actual = normalize_instructions actual in
   if actual <> expected then
     failwith
@@ -116,8 +116,8 @@ let find_unique_loadi_reg cfg value =
   let matches =
     cfg.Mini_RISC_CFG.nodes
     |> Mini_imp_CFG.NMap.bindings
-    |> List.filter_map (fun (_node_id, node) ->
-         match node.Mini_RISC_CFG.instructions with
+      |> List.filter_map (fun (_node_id, node_instructions) ->
+        match node_instructions with
          | [Mini_RISC_CFG.LoadI (n, reg)] when n = value -> Some reg
          | _ -> None)
   in
@@ -135,8 +135,110 @@ let assert_distinct_regs name left right =
          (string_of_reg left)
          (string_of_reg right))
 
+let assert_same_reg name left right =
+  if left <> right then
+    failwith
+      (Printf.sprintf
+         "scope test '%s' failed\nexpected same register\nactual: %s <> %s"
+         name
+         (string_of_reg left)
+         (string_of_reg right))
+
+let find_unique_cfg_node cfg predicate description =
+  let matches =
+    cfg.Mini_imp_CFG.nodes
+    |> Mini_imp_CFG.NMap.bindings
+    |> List.filter_map (fun (node_id, statements) ->
+         if predicate statements then Some node_id else None)
+  in
+  match matches with
+  | [node_id] -> node_id
+  | [] -> failwith (Printf.sprintf "no CFG node found for %s" description)
+  | _ -> failwith (Printf.sprintf "multiple CFG nodes found for %s" description)
+
+let assert_edge_equals cfg src expected description =
+  match Mini_imp_CFG.NMap.find_opt src cfg.Mini_imp_CFG.edges with
+  | Some actual when actual = expected -> ()
+  | Some actual ->
+      failwith
+        (Printf.sprintf
+           "CFG edge mismatch for %s\nexpected: %s\nactual:   %s"
+           description
+           (Mini_imp_Printer.string_of_cfg_out_node expected)
+           (Mini_imp_Printer.string_of_cfg_out_node actual))
+  | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
+
+let edge_of cfg src description =
+  match Mini_imp_CFG.NMap.find_opt src cfg.Mini_imp_CFG.edges with
+  | Some edge -> edge
+  | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
+
+let run_nested_if_cfg_test () =
+  (* Program: if x < 0 then (if true then z:=1 else z:=0) else (if true then x:=1 else x:=2); y := z *)
+  let open Mini_imp_Interpreter in
+  let prog =
+    make_program "x" "y"
+      (seq
+         (if_
+            (minor (var "x") (aval 0))
+            (if_ (Bval true) (assign "z" (aval 1)) (assign "z" (aval 0)))
+            (if_ (Bval true) (assign "x" (aval 1)) (assign "x" (aval 2))))
+         (assign "y" (var "z")))
+  in
+  let cfg = Mini_imp_CFG.make_cfg prog in
+  let outer_guard_node =
+    find_unique_cfg_node
+      cfg
+      (function
+        | [Mini_imp_CFG.Guard (Mini_imp_Interpreter.Minor
+              (Mini_imp_Interpreter.Var "x", Mini_imp_Interpreter.Aval 0))] -> true
+        | _ -> false)
+      "outer guard"
+  in
+  let inner_then_guard_node, outer_else_guard_node =
+    match edge_of cfg outer_guard_node "outer guard" with
+    | Mini_imp_CFG.Pair (left, right) -> (left, right)
+    | Mini_imp_CFG.Single _ -> failwith "outer guard should have a Pair edge"
+  in
+  let assign_z_1 =
+    find_unique_cfg_node
+      cfg
+      (function [Mini_imp_CFG.Assign ("z", Mini_imp_Interpreter.Aval 1)] -> true | _ -> false)
+      "z := 1"
+  in
+  let assign_z_0 =
+    find_unique_cfg_node
+      cfg
+      (function [Mini_imp_CFG.Assign ("z", Mini_imp_Interpreter.Aval 0)] -> true | _ -> false)
+      "z := 0"
+  in
+  let assign_x_1 =
+    find_unique_cfg_node
+      cfg
+      (function [Mini_imp_CFG.Assign ("x", Mini_imp_Interpreter.Aval 1)] -> true | _ -> false)
+      "x := 1"
+  in
+  let assign_x_2 =
+    find_unique_cfg_node
+      cfg
+      (function [Mini_imp_CFG.Assign ("x", Mini_imp_Interpreter.Aval 2)] -> true | _ -> false)
+      "x := 2"
+  in
+  let final_node =
+    find_unique_cfg_node
+      cfg
+      (function [Mini_imp_CFG.Assign ("y", Mini_imp_Interpreter.Var "z")] -> true | _ -> false)
+      "y := z"
+  in
+  assert_edge_equals cfg inner_then_guard_node (Mini_imp_CFG.Pair (assign_z_1, assign_z_0)) "inner then guard";
+  assert_edge_equals cfg outer_else_guard_node (Mini_imp_CFG.Pair (assign_x_1, assign_x_2)) "outer else guard";
+  assert_edge_equals cfg assign_z_1 (Mini_imp_CFG.Single final_node) "z:=1 exit";
+  assert_edge_equals cfg assign_z_0 (Mini_imp_CFG.Single final_node) "z:=0 exit";
+  assert_edge_equals cfg assign_x_1 (Mini_imp_CFG.Single final_node) "x:=1 exit";
+  assert_edge_equals cfg assign_x_2 (Mini_imp_CFG.Single final_node) "x:=2 exit"
+
 let run_cfg_scope_tests () =
-  let open Mini_imp in
+  let open Mini_imp_Interpreter in
   let if_prog =
     make_program
       "input"
@@ -149,62 +251,62 @@ let run_cfg_scope_tests () =
          (assign "tmp" (aval 99)))
   in
   let if_cfg = Mini_imp_CFG.make_cfg if_prog in
-  let if_risc = Mini_RISC_CFG.translate_cfg if_cfg "input" "output" in
+  let (if_risc, _) = Mini_RISC_CFG.translate_cfg if_cfg "input" "output" in
   let then_reg = find_unique_loadi_reg if_risc 41 in
   let join_reg = find_unique_loadi_reg if_risc 99 in
-  assert_distinct_regs "if local does not escape join" then_reg join_reg
+  assert_same_reg "if variable assignment is preserved at join" then_reg join_reg
 
 let run_translation_tests () =
-  let open Mini_imp in
+  let open Mini_imp_Interpreter in
   let tests = [
     ( "plus const const",
       plus (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.RVar 1, 3, Mini_RISC_CFG.RVar 1);
+        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Ra, 3, Mini_RISC_CFG.Ra);
       ] );
     ( "plus var const",
       plus (var "input") (aval 4),
-      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.RVar 1)] );
+      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.Ra)] );
     ( "plus nested const",
       plus (aval 2) (plus (var "input") (aval 1)),
       [
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 1, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.RVar 1, 2, Mini_RISC_CFG.RVar 2);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 1, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Ra, 2, Mini_RISC_CFG.Ra);
       ] );
     ( "minus var const",
       minus (var "input") (aval 4),
-      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.SubI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.RVar 1)] );
+      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.SubI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.Ra)] );
     ( "minus const var",
       minus (aval 4) (var "input"),
       [
-        Mini_RISC_CFG.LoadI (4, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.RVar 1, Mini_RISC_CFG.Rin, Mini_RISC_CFG.RVar 1);
+        Mini_RISC_CFG.LoadI (4, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra);
       ] );
     ( "minus expr var",
       minus (plus (var "input") (aval 2)) (var "input"),
       [
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 2, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.RVar 1, Mini_RISC_CFG.Rin, Mini_RISC_CFG.RVar 2);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 2, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra);
       ] );
     ( "times const const",
       times (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.MultI, Mini_RISC_CFG.RVar 1, 3, Mini_RISC_CFG.RVar 1);
+        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.MultI, Mini_RISC_CFG.Ra, 3, Mini_RISC_CFG.Ra);
       ] );
     ( "times zero",
       times (aval 0) (var "input"),
-      [Mini_RISC_CFG.LoadI (0, Mini_RISC_CFG.RVar 1)] );
+      [Mini_RISC_CFG.LoadI (0, Mini_RISC_CFG.Ra)] );
     ( "times one",
       times (var "input") (aval 1),
-      [Mini_RISC_CFG.Urop (Mini_RISC_CFG.Copy, Mini_RISC_CFG.Rin, Mini_RISC_CFG.RVar 1)] );
+      [Mini_RISC_CFG.Urop (Mini_RISC_CFG.Copy, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra)] );
     ( "times var expr",
       times (var "input") (plus (aval 1) (aval 2)),
       [
-        Mini_RISC_CFG.LoadI (1, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.RVar 1, 2, Mini_RISC_CFG.RVar 1);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Mult, Mini_RISC_CFG.Rin, Mini_RISC_CFG.RVar 1, Mini_RISC_CFG.RVar 2);
+        Mini_RISC_CFG.LoadI (1, Mini_RISC_CFG.Rb);
+        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rb, 2, Mini_RISC_CFG.Rb);
+        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Mult, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Rb, Mini_RISC_CFG.Ra);
       ] );
   ] in
   List.iter (fun (name, expr, expected) -> assert_translation name expr expected) tests
@@ -281,7 +383,7 @@ let run_program_file dir fname =
             List.iter2
               (fun n exp ->
                 try
-                  let result = Mini_imp.execute prog n in
+                  let result = Mini_imp_Interpreter.execute prog n in
                   Printf.printf "  f(%3d) = %d\n%!" n result;
                   if result <> exp then (
                     all_ok := false;
@@ -303,6 +405,7 @@ let run_program_file dir fname =
 
 let () =
   run_cfg_scope_tests ();
+  run_nested_if_cfg_test ();
   run_translation_tests ();
 
   if not (Sys.file_exists programs_dir && Sys.is_directory programs_dir) then

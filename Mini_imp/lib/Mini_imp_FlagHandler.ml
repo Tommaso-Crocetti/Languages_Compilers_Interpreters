@@ -22,7 +22,7 @@ let print_token_stream (lexbuf : Lexing.lexbuf) : unit =
   in
   loop ()
 
-let parse_program ?(show_tokens = false) (filename : string) : Mini_imp.program =
+let parse_program ?(show_tokens = false) (filename : string) : Mini_imp_Interpreter.program =
   if show_tokens then (
     print_endline "=== Tokens ===";
     let ic = open_in filename in
@@ -36,10 +36,10 @@ let parse_program ?(show_tokens = false) (filename : string) : Mini_imp.program 
   close_in ic;
   program
 
-let print_program_analysis (opts : options) (program : Mini_imp.program) : Mini_imp_CFG.cfg option =
+let print_program_analysis (opts : options) (program : Mini_imp_Interpreter.program) : Mini_imp_CFG.cfg option =
   if opts.show_ast then (
     print_endline "=== AST ===";
-    print_endline (Mini_imp.program_to_string program)
+    print_endline (Mini_imp_Printer.program_to_string program)
   );
 
   if opts.show_cfg || opts.show_risc_cfg then (
@@ -58,13 +58,14 @@ let print_program_analysis (opts : options) (program : Mini_imp.program) : Mini_
     );
 
     if opts.show_risc_cfg then (
-      let risc_cfg = Mini_RISC_CFG.translate_cfg cfg program.input program.output in
+      let (risc_cfg, final_reg_map) = Mini_RISC_CFG.translate_cfg cfg program.input program.output in
       Printf.printf "=== RISC CFG ===\n";
       Printf.printf "nodes: %d\n" (Mini_RISC_CFG.NMap.cardinal risc_cfg.nodes);
       Printf.printf "edges: %d\n" (Mini_RISC_CFG.NMap.cardinal risc_cfg.edges);
       Printf.printf "initial: %d\n" risc_cfg.initial;
       Printf.printf "final: %d\n" risc_cfg.final;
-      Printf.printf "%s\n" (Mini_imp_Printer.risc_cfg_to_string risc_cfg)
+      Printf.printf "%s\n"
+        (Mini_imp_Printer.risc_cfg_and_reg_map_to_string risc_cfg final_reg_map)
     );
 
     Some cfg
@@ -77,11 +78,11 @@ let options_of_flags ~show_tokens ~show_ast ~show_cfg ~show_risc_cfg : options =
   show_risc_cfg;
 }
 
-let analyze_program (opts : options) (program : Mini_imp.program) : Mini_imp_CFG.cfg option =
+let analyze_program (opts : options) (program : Mini_imp_Interpreter.program) : Mini_imp_CFG.cfg option =
   print_program_analysis opts program
 
 let analyze_file ?(show_tokens = false) ?(show_ast = false) ?(show_cfg = false)
-    ?(show_risc_cfg = false) (filename : string) : Mini_imp.program =
+    ?(show_risc_cfg = false) (filename : string) : Mini_imp_Interpreter.program =
   let opts = options_of_flags ~show_tokens ~show_ast ~show_cfg ~show_risc_cfg in
   let program = parse_program ~show_tokens:opts.show_tokens filename in
   ignore (analyze_program opts program);

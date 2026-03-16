@@ -29,11 +29,38 @@ let string_of_token (tok : Mini_imp_Parser.token) : string =
   | Mini_imp_Parser.RPAREN -> "RPAREN"
   | Mini_imp_Parser.EOF -> "EOF"
 
+let rec aexp_to_string (a: Mini_imp_Interpreter.a_exp): string =
+  match a with
+  | Mini_imp_Interpreter.Aval n -> string_of_int n
+  | Mini_imp_Interpreter.Var x -> x
+  | Mini_imp_Interpreter.Of_Bool b -> bexp_to_string b
+  | Mini_imp_Interpreter.Plus (a1, a2) -> (aexp_to_string a1) ^ " + " ^ (aexp_to_string a2)
+  | Mini_imp_Interpreter.Minus (a1, a2) -> (aexp_to_string a1) ^ " - " ^ (aexp_to_string a2)
+  | Mini_imp_Interpreter.Times (a1, a2) -> (aexp_to_string a1) ^ " * " ^ (aexp_to_string a2)
+and bexp_to_string (b: Mini_imp_Interpreter.b_exp): string =
+  match b with
+  | Mini_imp_Interpreter.Bval v -> string_of_bool v
+  | Mini_imp_Interpreter.And (b1, b2) -> (bexp_to_string b1) ^ " && " ^ (bexp_to_string b2)
+  | Mini_imp_Interpreter.Or (b1, b2) -> (bexp_to_string b1) ^ " || " ^ (bexp_to_string b2)
+  | Mini_imp_Interpreter.Not b1 -> "!" ^ (bexp_to_string b1)
+  | Mini_imp_Interpreter.Minor (a1, a2) -> (aexp_to_string a1) ^ " < " ^ (aexp_to_string a2)
+
+let rec command_to_string (c: Mini_imp_Interpreter.command): string =
+  match c with
+  | Mini_imp_Interpreter.Skip -> "skip"
+  | Mini_imp_Interpreter.Assign (x, a) -> x ^ " := " ^ (aexp_to_string a)
+  | Mini_imp_Interpreter.Seq (c1, c2) -> "(" ^ (command_to_string c1) ^ ") ; (" ^ (command_to_string c2) ^ ")"
+  | Mini_imp_Interpreter.If (b, c1, c2) -> "if " ^ (bexp_to_string b) ^ " then (" ^ (command_to_string c1) ^ ") else (" ^ (command_to_string c2) ^ ")"
+  | Mini_imp_Interpreter.While (b, c) -> "while " ^ (bexp_to_string b) ^ " do (" ^ (command_to_string c) ^ ")"
+let program_to_string (p: Mini_imp_Interpreter.program): string =
+    "def main with input " ^ p.input ^ " output " ^ p.output ^ " as\n" ^ (command_to_string p.body)
+
+
 let string_of_cfg_statement (stmt: Mini_imp_CFG.statement) : string =
   match stmt with
   | Mini_imp_CFG.Skip -> "Skip"
-  | Mini_imp_CFG.Assign (x, a) -> "Assign(" ^ x ^ ", " ^ Mini_imp.aexp_to_string a ^ ")"
-  | Mini_imp_CFG.Guard b -> "Guard(" ^ Mini_imp.bexp_to_string b ^ ")"
+  | Mini_imp_CFG.Assign (x, a) -> "Assign(" ^ x ^ ", " ^ aexp_to_string a ^ ")"
+  | Mini_imp_CFG.Guard b -> "Guard(" ^ bexp_to_string b ^ ")"
 
 let string_of_cfg_out_node (out_node: Mini_imp_CFG.out_node) : string =
   match out_node with
@@ -94,37 +121,42 @@ let string_of_risc_instruction (instr: Mini_RISC_CFG.instruction) : string =
   match instr with
   | Mini_RISC_CFG.Nop -> "Nop"
   | Mini_RISC_CFG.Brop (b, r1, r2, r3) ->
-    Printf.sprintf "%s %s, %s, %s"
+    Printf.sprintf "%s %s %s => %s"
       (string_of_risc_brop b)
       (string_of_risc_reg r1)
       (string_of_risc_reg r2)
       (string_of_risc_reg r3)
   | Mini_RISC_CFG.Biop (b, r, n, r2) ->
-    Printf.sprintf "%s %s, %d, %s"
+    Printf.sprintf "%s %s %d => %s"
       (string_of_risc_biop b)
       (string_of_risc_reg r)
       n
       (string_of_risc_reg r2)
   | Mini_RISC_CFG.Urop (u, r1, r2) ->
-    Printf.sprintf "%s %s, %s"
+    Printf.sprintf "%s %s => %s"
       (string_of_risc_urop u)
       (string_of_risc_reg r1)
       (string_of_risc_reg r2)
   | Mini_RISC_CFG.Load (r1, r2) ->
-    Printf.sprintf "Load %s, %s" (string_of_risc_reg r1) (string_of_risc_reg r2)
+    Printf.sprintf "Load %s => %s" (string_of_risc_reg r1) (string_of_risc_reg r2)
   | Mini_RISC_CFG.LoadI (n, r) ->
-    Printf.sprintf "LoadI %d, %s" n (string_of_risc_reg r)
+    Printf.sprintf "LoadI %d => %s" n (string_of_risc_reg r)
   | Mini_RISC_CFG.Store (r1, r2) ->
-    Printf.sprintf "Store %s, %s" (string_of_risc_reg r1) (string_of_risc_reg r2)
+    Printf.sprintf "Store %s => %s" (string_of_risc_reg r1) (string_of_risc_reg r2)
   | Mini_RISC_CFG.Jump l ->
     Printf.sprintf "Jump %s" l
   | Mini_RISC_CFG.CJump (r, l1, l2) ->
-    Printf.sprintf "CJump %s, %s, %s" (string_of_risc_reg r) l1 l2
+    Printf.sprintf "CJump %s %s %s" (string_of_risc_reg r) l1 l2
+
+let reg_map_to_string (reg_map: Mini_RISC_CFG.var_to_reg) : string =
+  Mini_RISC_CFG.SMap.bindings reg_map
+  |> List.map (fun (var, reg) -> Printf.sprintf "%s -> %s" var (string_of_risc_reg reg))
+  |> String.concat ", "
 
 let risc_cfg_to_string (cfg: Mini_RISC_CFG.risc_cfg) : string =
-  let node_to_string (node_id, node) =
+  let node_to_string (node_id, instructions) =
     let instrs_str =
-      List.map string_of_risc_instruction node.Mini_RISC_CFG.instructions
+      List.map string_of_risc_instruction instructions
       |> String.concat "\n  "
     in
     Printf.sprintf "Node %d:\n  %s" node_id instrs_str
@@ -152,3 +184,13 @@ let risc_cfg_to_string (cfg: Mini_RISC_CFG.risc_cfg) : string =
     cfg.final
     nodes_str
     edges_str
+
+let risc_cfg_and_reg_map_to_string
+  (risc_cfg : Mini_RISC_CFG.risc_cfg)
+  (final_reg_map : Mini_RISC_CFG.var_to_reg)
+  : string =
+  Printf.sprintf
+    "RISC CFG:\n%s\n\nFinal Register Map:\n%s"
+    (risc_cfg_to_string risc_cfg)
+    (reg_map_to_string final_reg_map)
+

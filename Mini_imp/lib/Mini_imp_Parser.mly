@@ -1,5 +1,5 @@
 %{
-  open Mini_imp
+  open Mini_imp_Interpreter
 %}
 
 %token <int> INT
