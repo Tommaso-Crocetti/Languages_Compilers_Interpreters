@@ -89,33 +89,33 @@ let cfg_to_string (cfg: Mini_imp_CFG.cfg) : string =
 
 let string_of_risc_reg (reg: Mini_RISC_CFG.reg) : string =
   match reg with
-  | Mini_RISC_CFG.Rin -> "Rin"
-  | Mini_RISC_CFG.Rout -> "Rout"
-  | Mini_RISC_CFG.Ra -> "Ra"
-  | Mini_RISC_CFG.Rb -> "Rb"
-  | Mini_RISC_CFG.RVar n -> Printf.sprintf "R%d" n
+  | Mini_RISC_CFG.Rin -> "in"
+  | Mini_RISC_CFG.Rout -> "out"
+  | Mini_RISC_CFG.Ra -> "ra"
+  | Mini_RISC_CFG.Rb -> "rb"
+  | Mini_RISC_CFG.RVar n -> Printf.sprintf "r%d" n
 
 let string_of_risc_brop (brop: Mini_RISC_CFG.brop) : string =
   match brop with
-  | Mini_RISC_CFG.Add -> "Add"
-  | Mini_RISC_CFG.Sub -> "Sub"
-  | Mini_RISC_CFG.Mult -> "Mult"
-  | Mini_RISC_CFG.And -> "And"
-  | Mini_RISC_CFG.Or -> "Or"
-  | Mini_RISC_CFG.Less -> "Less"
+  | Mini_RISC_CFG.Add -> "add"
+  | Mini_RISC_CFG.Sub -> "sub"
+  | Mini_RISC_CFG.Mult -> "mult"
+  | Mini_RISC_CFG.And -> "and"
+  | Mini_RISC_CFG.Or -> "or"
+  | Mini_RISC_CFG.Less -> "less"
 
 let string_of_risc_biop (biop: Mini_RISC_CFG.biop) : string =
   match biop with
-  | Mini_RISC_CFG.AddI -> "AddI"
-  | Mini_RISC_CFG.SubI -> "SubI"
-  | Mini_RISC_CFG.MultI -> "MultI"
-  | Mini_RISC_CFG.AndI -> "AndI"
-  | Mini_RISC_CFG.OrI -> "OrI"
+  | Mini_RISC_CFG.AddI -> "addI"
+  | Mini_RISC_CFG.SubI -> "subI"
+  | Mini_RISC_CFG.MultI -> "multI"
+  | Mini_RISC_CFG.AndI -> "andI"
+  | Mini_RISC_CFG.OrI -> "orI"
 
 let string_of_risc_urop (urop: Mini_RISC_CFG.urop) : string =
   match urop with
-  | Mini_RISC_CFG.Not -> "Not"
-  | Mini_RISC_CFG.Copy -> "Copy"
+  | Mini_RISC_CFG.Not -> "not"
+  | Mini_RISC_CFG.Copy -> "copy"
 
 let string_of_risc_instruction (instr: Mini_RISC_CFG.instruction) : string =
   match instr with
@@ -179,9 +179,10 @@ let risc_cfg_to_string (cfg: Mini_RISC_CFG.risc_cfg) : string =
     |> List.map edge_to_string
     |> String.concat "\n"
   in
-  Printf.sprintf "Initial: %d\nFinal: %d\n\nNodes:\n%s\n\nEdges:\n%s"
+  let final_str = cfg.final |> List.map string_of_int |> String.concat ", " in
+  Printf.sprintf "Initial: %d\nFinal: [%s]\n\nNodes:\n%s\n\nEdges:\n%s"
     cfg.initial
-    cfg.final
+    final_str
     nodes_str
     edges_str
 

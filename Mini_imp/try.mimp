@@ -1,14 +1,9 @@
 def main with input x output y as
-    if (0 < x) and (x + x < y + x + y) then
-        y := 0
-    else (
-        a := 0;
-        b := 1;
-        while 1 < x do (
-            t := a + b;
-            a := b;
-            b := t;
-            x := x - 1
-        );
-        y := b
-    )
+    a := x;
+    if a < 0 then z := (0 - a) + (1 * x) * (x + 3 - 2) + (x + 2 - 3) else skip;
+    if a < 1 then f := 1 else skip;
+    b := a + 1;
+    while (a < b) or (b < a) do
+        if a < b then b := b - a
+        else a := a - b;
+    y := a

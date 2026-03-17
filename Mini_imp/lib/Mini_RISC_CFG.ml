@@ -1,13 +1,10 @@
 module NMap = Mini_imp_CFG.NMap
 
-module StrOrd : Map.OrderedType with type t = string = struct
-  type t = string
-  let compare = compare
-end
+module SSet = Mini_imp_CFG.SSet
 
-module SMap = Map.Make(StrOrd)
+module SMap = Map.Make(String)
 
-module ISet = Set.Make(struct type t = int let compare = compare end)
+module ISet = Set.Make(Int)
 
 type reg = Rin | Rout | Ra | Rb | RVar of int
 
@@ -34,22 +31,17 @@ type instruction =
 (* Code is a mapping from labels to lists of instructions *)
 type code = instruction list SMap.t
 
-type risc_cfg = 
-  {
-    (* Nodes are represented as int -> risc_node *)
-    nodes: instruction list NMap.t;
-    (* Edges are represented as int -> int list *)
-    edges: Mini_imp_CFG.out_node NMap.t;
-    initial: int;
-    final: int;
-  }
+type risc_cfg = instruction list Mini_imp_CFG.generic_cfg
 
 let empty_risc_cfg : risc_cfg = 
   {
     nodes = NMap.empty;
     edges = NMap.empty;
     initial = 0;
-    final = 0;
+    final = [0];
+    defined_vars = Mini_imp_CFG.SSet.empty;
+    input_var = "";
+    output_var = "";
   }
 
 (* Helper function to generate a fresh register *)
@@ -210,7 +202,7 @@ and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
     (* x := x - a, a should be computed in a different register than the one of x *)
     if base_reg = result_reg then
       let temp_reg = choose_result_reg None nested_temp_regs in
-      let (t, code) = translate_aexpr a (Some temp_reg) nested_temp_regs reg_map in
+      let (_, code) = translate_aexpr a (Some temp_reg) nested_temp_regs reg_map in
       (result_reg, code @ [Brop (Sub, base_reg, temp_reg, result_reg)])
     (* Otherwise, compute a in result_reg *)
     else
@@ -262,9 +254,10 @@ let rec translate_bexpr
       (result_reg, code @ [Biop (AndI, result_reg, 1, result_reg)])
     (* b1 && b2, translate both operands and perform a brop *)
     | _ ->
-    let (_, code1) = translate_bexpr b1 (Some result_reg) nested_temp_regs reg_map in
-    let (t2, code2) = translate_bexpr b2 None nested_temp_regs reg_map in
-    (result_reg, code1 @ code2 @ [Brop (And, result_reg, t2, result_reg)])
+    let (t1, code1) = translate_bexpr b1 None nested_temp_regs reg_map in
+    let nested_temp_regs = available_temp_regs t1 nested_temp_regs in
+    let (_, code2) = translate_bexpr b2 (Some result_reg) nested_temp_regs reg_map in
+    (result_reg, code1 @ code2 @ [Brop (And, t1, result_reg, result_reg)])
   )
   (* NOTE: Partial short-circuit evaluation *)
   | Mini_imp_Interpreter.Or (b1, b2) ->
@@ -278,7 +271,8 @@ let rec translate_bexpr
       (result_reg, code @ [Biop (OrI, result_reg, 0, result_reg)])
     (* b1 || b2, translate both operands and perform a brop *)
     | _ ->
-      let (_, code1) = translate_bexpr b1 (Some result_reg) nested_temp_regs reg_map in
+      let (t1, code1) = translate_bexpr b1 None nested_temp_regs reg_map in
+      let nested_temp_regs = available_temp_regs t1 nested_temp_regs in
       let (t2, code2) = translate_bexpr b2 None nested_temp_regs reg_map in
       (result_reg, code1 @ code2 @ [Brop (Or, result_reg, t2, result_reg)])
     )
@@ -303,42 +297,40 @@ let rec translate_bexpr
       (result_reg, [LoadI ((if n1 < n2 then 1 else 0), result_reg)])
       (* x < n: insert n into the result register and perform a brop *)
     | (Mini_imp_Interpreter.Var x, Mini_imp_Interpreter.Aval n) ->
-      let x_reg = SMap.find x reg_map in
-      (result_reg, [LoadI (n, result_reg); Brop (Less, x_reg, result_reg, result_reg)])
+      let base_reg = SMap.find x reg_map in
+      (result_reg, [LoadI (n, result_reg); Brop (Less, base_reg, result_reg, result_reg)])
       (* n < x: insert n into the result register and perform a brop *)
     | (Mini_imp_Interpreter.Aval n, Mini_imp_Interpreter.Var x) ->
-      let x_reg = SMap.find x reg_map in
-      (result_reg, [LoadI (n, result_reg); Brop (Less, result_reg, x_reg, result_reg)])
+      let base_reg = SMap.find x reg_map in
+      (result_reg, [LoadI (n, result_reg); Brop (Less, result_reg, base_reg, result_reg)])
     (* n < a2, insert n in the result register and perform a brop *)
     | (Mini_imp_Interpreter.Aval n, a2) ->
-      (* n < expr: translate a2, reuse result_reg for the load *)
       let (t2, code2) = translate_aexpr a2 None nested_temp_regs reg_map in
       (result_reg, code2 @ [LoadI (n, result_reg); Brop (Less, result_reg, t2, result_reg)])
     (* a1 < n, insert n in the result register and perform a brop *)
     | (a1, Mini_imp_Interpreter.Aval n) ->
-      (* expr < n: keep the final boolean in result_reg and evaluate expr in scratch *)
       let (t1, code1) = translate_aexpr a1 None nested_temp_regs reg_map in
       (result_reg, code1 @ [LoadI (n, result_reg); Brop (Less, t1, result_reg, result_reg)])
     (* x < y, perform a brop *)
     | (Mini_imp_Interpreter.Var x, Mini_imp_Interpreter.Var y) ->
-      let x_reg = SMap.find x reg_map in
-      let y_reg = SMap.find y reg_map in
-      (result_reg, [Brop (Less, x_reg, y_reg, result_reg)])
+      let base_reg1 = SMap.find x reg_map in
+      let base_reg2 = SMap.find y reg_map in
+      (result_reg, [Brop (Less, base_reg1, base_reg2, result_reg)])
     (* x < a2, translate a2 and perform a brop *)
     | (Mini_imp_Interpreter.Var x, a2) ->
-      let x_reg = SMap.find x reg_map in
-      let (t2, code2) = translate_aexpr a2 None nested_temp_regs reg_map in
-      (result_reg, code2 @ [Brop (Less, x_reg, t2, result_reg)])
+      let base_reg = SMap.find x reg_map in
+      let (_, code2) = translate_aexpr a2 (Some result_reg) nested_temp_regs reg_map in
+      (result_reg, code2 @ [Brop (Less, base_reg, result_reg, result_reg)])
     (* a1 < x, translate a1 and perform a brop *)
     | (a1, Mini_imp_Interpreter.Var x) ->
-      let x_reg = SMap.find x reg_map in
+      let base_reg = SMap.find x reg_map in
       let (_, code1) = translate_aexpr a1 (Some result_reg) nested_temp_regs reg_map in
-      (result_reg, code1 @ [Brop (Less, result_reg, x_reg, result_reg)])
+      (result_reg, code1 @ [Brop (Less, result_reg, base_reg, result_reg)])
     (* a1 < a2, translate both expressions and perform a brop *)
     | (a1, a2) ->
-      let (_, code1) = translate_aexpr a1 (Some result_reg) nested_temp_regs reg_map in
-      let (t2, code2) = translate_aexpr a2 None nested_temp_regs reg_map in
-      (result_reg, code1 @ code2 @ [Brop (Less, result_reg, t2, result_reg)])
+      let (t1, code1) = translate_aexpr a1 None nested_temp_regs reg_map in
+      let (_, code2) = translate_aexpr a2 (Some result_reg) nested_temp_regs reg_map in
+      (result_reg, code1 @ code2 @ [Brop (Less, t1, result_reg, result_reg)])
     )
 
 (* Function that translates a list of statements into a list of RISC instructions *)
@@ -379,6 +371,10 @@ let add_edge (g: risc_cfg) (src: int) (dst: Mini_imp_CFG.out_node) : risc_cfg =
 (* Main function, translates a CFG to a RISC CFG by traversing the original one *)
 let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string): risc_cfg * var_to_reg =
   let initial_reg_map = initial_reg_map input_var output_var in
+  let initial_reg_map = SSet.fold (fun var acc ->
+    if SMap.mem var acc then acc
+    else SMap.add var (fresh_reg ()) acc
+  ) g.defined_vars initial_reg_map in 
   let rec rec_translate_cfg
     (cfg: Mini_imp_CFG.cfg)
     (risc_cfg: risc_cfg)
@@ -420,7 +416,7 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
     | n :: _ -> n
     | [] -> g.initial
   in
-  let initial_risc_cfg = { empty_risc_cfg with initial = g.initial; final = final_node } in
+  let initial_risc_cfg = { empty_risc_cfg with initial = g.initial; final = [final_node]; input_var = g.input_var; output_var = g.output_var } in
   let (risc_cfg, _, final_reg_map) = rec_translate_cfg g initial_risc_cfg g.initial ISet.empty initial_reg_map None in
   (risc_cfg, final_reg_map)
 

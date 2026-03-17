@@ -63,7 +63,7 @@ let print_program_analysis (opts : options) (program : Mini_imp_Interpreter.prog
       Printf.printf "nodes: %d\n" (Mini_RISC_CFG.NMap.cardinal risc_cfg.nodes);
       Printf.printf "edges: %d\n" (Mini_RISC_CFG.NMap.cardinal risc_cfg.edges);
       Printf.printf "initial: %d\n" risc_cfg.initial;
-      Printf.printf "final: %d\n" risc_cfg.final;
+      Printf.printf "final: %s\n" (risc_cfg.final |> List.map string_of_int |> String.concat ", ");
       Printf.printf "%s\n"
         (Mini_imp_Printer.risc_cfg_and_reg_map_to_string risc_cfg final_reg_map)
     );

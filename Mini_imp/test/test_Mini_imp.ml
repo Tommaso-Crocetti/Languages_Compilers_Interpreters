@@ -112,9 +112,9 @@ let assert_translation name expr expected =
          (string_of_instructions expected)
          (string_of_instructions actual))
 
-let find_unique_loadi_reg cfg value =
+let find_unique_loadi_reg (cfg : Mini_RISC_CFG.risc_cfg) value =
   let matches =
-    cfg.Mini_RISC_CFG.nodes
+    cfg.nodes
     |> Mini_imp_CFG.NMap.bindings
       |> List.filter_map (fun (_node_id, node_instructions) ->
         match node_instructions with
@@ -144,9 +144,9 @@ let assert_same_reg name left right =
          (string_of_reg left)
          (string_of_reg right))
 
-let find_unique_cfg_node cfg predicate description =
+let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   let matches =
-    cfg.Mini_imp_CFG.nodes
+    cfg.nodes
     |> Mini_imp_CFG.NMap.bindings
     |> List.filter_map (fun (node_id, statements) ->
          if predicate statements then Some node_id else None)
@@ -156,8 +156,8 @@ let find_unique_cfg_node cfg predicate description =
   | [] -> failwith (Printf.sprintf "no CFG node found for %s" description)
   | _ -> failwith (Printf.sprintf "multiple CFG nodes found for %s" description)
 
-let assert_edge_equals cfg src expected description =
-  match Mini_imp_CFG.NMap.find_opt src cfg.Mini_imp_CFG.edges with
+let assert_edge_equals (cfg : Mini_imp_CFG.cfg) src expected description =
+  match Mini_imp_CFG.NMap.find_opt src cfg.edges with
   | Some actual when actual = expected -> ()
   | Some actual ->
       failwith
@@ -168,8 +168,8 @@ let assert_edge_equals cfg src expected description =
            (Mini_imp_Printer.string_of_cfg_out_node actual))
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
-let edge_of cfg src description =
-  match Mini_imp_CFG.NMap.find_opt src cfg.Mini_imp_CFG.edges with
+let edge_of (cfg : Mini_imp_CFG.cfg) src description =
+  match Mini_imp_CFG.NMap.find_opt src cfg.edges with
   | Some edge -> edge
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
