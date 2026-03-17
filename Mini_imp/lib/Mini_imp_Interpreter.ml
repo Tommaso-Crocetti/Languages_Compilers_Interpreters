@@ -1,11 +1,8 @@
+exception Error of string
+
 type var = string
 
-module VarOrd : Map.OrderedType with type t = var = struct
-  type t = var
-  let compare = compare
-end
-
-module SMap = Map.Make(VarOrd)
+module SMap = Map.Make(String)
 
 type state = int SMap.t
 
@@ -64,7 +61,7 @@ let rec eval_aexp (a:a_exp) (s:state) : int =
    | Var x ->
     (match SMap.find_opt x s with
     | Some n -> n
-    | None -> failwith ("Variable " ^ x ^ " not found in state.")
+    | None -> raise (Error ("Runtime error, variable " ^ x ^ " not found in state."))
     )
    | Of_Bool b -> if eval_bexp b s then 1 else 0
    | Plus (a1, a2) -> (eval_aexp a1 s) + (eval_aexp a2 s)
@@ -92,7 +89,7 @@ let execute (p: program) (n: int): int =
     let final_state = eval_c command initial_state in
     match SMap.find_opt p.output final_state with
     | Some v -> v
-    | None -> failwith ("Output variable " ^ p.output ^ " not found in final state.")
+    | None -> raise (Error ("Runtime error, output variable " ^ p.output ^ " not found in final state."))
 
 let run_program (program : program) =
   print_endline "=== Input ===";

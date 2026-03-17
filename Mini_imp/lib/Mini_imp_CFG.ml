@@ -1,3 +1,5 @@
+exception Error of string
+
 type statement =
   | Skip
   | Assign of Mini_imp_Interpreter.var * Mini_imp_Interpreter.a_exp
@@ -73,7 +75,6 @@ let connect_pending_node (g: cfg) (src: int) (dst: int) : cfg =
     (* If an edge already exists and is a pair, we need to update only the right side *)
     | Some (Pair (left_dst, _)) -> add_edge g src (Pair (left_dst, dst))
 
-
 (* Given a .mimp program, incrementally builds a control flow graph *)
 let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
     let initial_cfg = {empty_cfg with input_var = p.Mini_imp_Interpreter.input; output_var = p.Mini_imp_Interpreter.output} in
@@ -108,7 +109,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
         let g' = add_node g (List.rev (Guard b::pending_stmts)) in
         let new_final_node = match g'.final with
           | [n] -> n
-          | _ -> failwith "Unexpected: after adding a node, the final should be a single node."
+          | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the if statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
         let g' = if last_command <> Mini_imp_Parser.ELSE then
@@ -132,7 +133,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
             let g1'' = add_node g1 (List.rev then_stmts) in
             let then_join_node = match g1''.final with
               | [n] -> n
-              | _ -> failwith "Unexpected: after processing the then branch, the final should be a single node."
+              | _ -> raise (Error "CFG error: expected a single final node built from pending statements in the then branch.")
             in
             (* Backpatch: the previous final nodes of the then branch 
             must point to the new node *)
@@ -167,7 +168,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
             let g2'' = add_node g2 (List.rev else_stmts) in
             let else_final_node = match g2''.final with
               | [n] -> n
-              | _ -> failwith "Unexpected: after processing the else branch, the final should be a single node."
+              | _ -> raise (Error "CFG error: expected a single final node built from pending statements in the else branch.")
             in
             (* Backpatch: the previous final nodes of the else branch
             must point to the new node,
@@ -204,7 +205,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
         let g_pre = add_node g pre_guard_stmts in
         let pre_guard_node = match g_pre.final with
           | [n] -> n
-          | _ -> failwith "Unexpected: after adding the pre-guard node, the final should be a single node."
+          | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the while statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
         let g' = if last_command <> Mini_imp_Parser.ELSE then
@@ -215,7 +216,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
         let g' = add_node g' [Guard b] in
         let guard_node = match g'.final with
           | [n] -> n
-          | _ -> failwith "Unexpected: after adding a node, the final should be a single node."
+          | _ -> raise (Error "CFG error: expected a single final node containing the while guard.")
         in
         (* Connect the pre-guard node to the guard node *)
         let g_guard = add_edge g' pre_guard_node (Single guard_node) in
@@ -229,7 +230,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
             let g_body = add_node g_while (List.rev body_stmts) in
             let body_join_node = match g_body.final with
               | [n] -> n
-              | _ -> failwith "Unexpected: after processing the body, the final should be a single node."
+              | _ -> raise (Error "CFG error: expected a single final node built from pending statements of the while body.")
             in
             (* Backpatch: the previous final nodes of the body must point to the new node *)
             List.fold_left
@@ -266,7 +267,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
     let cfg' = if final_stmts != [] then add_node cfg (List.rev final_stmts) else cfg in
     let final_node = match cfg'.final with
       | [n] -> n
-      | _ -> failwith "Unexpected: after processing the entire program, the final should be a single node."
+      | _ -> raise (Error "CFG error: expected a single final node built from pending statements at the end of the program.")
     in
     (* Backpatch: the previous final nodes must point to the new final node *)
     if final_stmts != [] then

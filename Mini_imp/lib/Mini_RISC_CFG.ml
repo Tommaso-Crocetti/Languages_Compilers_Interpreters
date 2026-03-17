@@ -1,3 +1,5 @@
+exception Error of string
+
 module NMap = Mini_imp_CFG.NMap
 
 module SSet = Mini_imp_CFG.SSet
@@ -94,7 +96,7 @@ let rec translate_aexpr
   | Mini_imp_Interpreter.Times (a1, a2) ->
     translate_commutative_aexpr Mult MultI a1 a2 target_reg temp_regs reg_map
   | Mini_imp_Interpreter.Of_Bool _ ->
-    failwith "of_bool not supported"
+    raise (Error "RISC-CFG error: of_bool not supported")
 
 (* Helper function that translates commutative arithmetic expressions *)
 and translate_commutative_aexpr (brop : brop) (biop : biop)
@@ -109,7 +111,7 @@ and translate_commutative_aexpr (brop : brop) (biop : biop)
     (match brop with
     | Add -> (result_reg, [LoadI (n1 + n2, result_reg)])
     | Mult -> (result_reg, [LoadI (n1 * n2, result_reg)])
-    | _ -> failwith "Unsupported binary operation"
+    | _ -> raise (Error "RISC-CFG error: unsupported commutative binary operation")
     )
   (* n op a / a op n, different cases can be considered *)
   | (Mini_imp_Interpreter.Aval n, a) | (a, Mini_imp_Interpreter.Aval n) ->
