@@ -68,7 +68,7 @@ let string_of_cfg_out_node (out_node: Mini_imp_CFG.out_node) : string =
   | Mini_imp_CFG.Pair (id1, id2) -> "(" ^ string_of_int id1 ^ ", " ^ string_of_int id2 ^ ")"
 
 let cfg_to_string (cfg: Mini_imp_CFG.cfg) : string =
-  let node_to_string (node_id, stmts) =
+  let node_to_string (node_id, (stmts, _def_vars)) =
     let stmts_str = List.map string_of_cfg_statement stmts |> String.concat "; " in
     string_of_int node_id ^ ": " ^ stmts_str
   in

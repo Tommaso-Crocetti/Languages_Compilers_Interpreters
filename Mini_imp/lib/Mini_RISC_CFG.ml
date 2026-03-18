@@ -41,9 +41,9 @@ let empty_risc_cfg : risc_cfg =
     edges = NMap.empty;
     initial = 0;
     final = [0];
-    defined_vars = Mini_imp_CFG.SSet.empty;
     input_var = "";
     output_var = "";
+    all_vars = Mini_imp_CFG.SSet.empty;
   }
 
 (* Helper function to generate a fresh register *)
@@ -67,7 +67,7 @@ let available_temp_regs (reserved_reg : reg) (temp_regs : reg list) : reg list =
   List.filter (fun reg -> reg <> reserved_reg) temp_regs
 
 (* Helper function to create the initial register map for input and output variables *)
-let initial_reg_map (input_var : Mini_imp_Interpreter.var) (output_var : Mini_imp_Interpreter.var) : var_to_reg = 
+let initial_reg_map (input_var : string) (output_var : string) : var_to_reg = 
   SMap.add output_var Rout (SMap.add input_var Rin SMap.empty)
 
 (* Recursive function that translate arithmetic expressions *)
@@ -376,7 +376,7 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
   let initial_reg_map = SSet.fold (fun var acc ->
     if SMap.mem var acc then acc
     else SMap.add var (fresh_reg ()) acc
-  ) g.defined_vars initial_reg_map in 
+  ) g.all_vars initial_reg_map in 
   let rec rec_translate_cfg
     (cfg: Mini_imp_CFG.cfg)
     (risc_cfg: risc_cfg)
@@ -390,7 +390,8 @@ let translate_cfg (g: Mini_imp_CFG.cfg) (input_var: string) (output_var: string)
     else
       (* Add the current node to the visited set and translate the block *)
       let visited = ISet.add node_id visited in
-      let instructions, next_reg_map = translate_stmts (NMap.find node_id cfg.nodes) curr_reg_map in
+      let (stmts, _) = NMap.find node_id cfg.nodes in
+      let instructions, next_reg_map = translate_stmts stmts curr_reg_map in
       (* Add the corresponding RISC node and the edges to the RISC CFG *)
       let risc_cfg = add_node risc_cfg node_id instructions in
       match NMap.find_opt node_id cfg.edges with

@@ -148,7 +148,7 @@ let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   let matches =
     cfg.nodes
     |> Mini_imp_CFG.NMap.bindings
-    |> List.filter_map (fun (node_id, statements) ->
+    |> List.filter_map (fun (node_id, (statements, _def_vars)) ->
          if predicate statements then Some node_id else None)
   in
   match matches with
@@ -262,8 +262,7 @@ let run_translation_tests () =
     ( "plus const const",
       plus (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Ra, 3, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.LoadI (5, Mini_RISC_CFG.Ra);
       ] );
     ( "plus var const",
       plus (var "input") (aval 4),
@@ -292,8 +291,7 @@ let run_translation_tests () =
     ( "times const const",
       times (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (2, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.MultI, Mini_RISC_CFG.Ra, 3, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.LoadI (6, Mini_RISC_CFG.Ra);
       ] );
     ( "times zero",
       times (aval 0) (var "input"),
@@ -304,9 +302,8 @@ let run_translation_tests () =
     ( "times var expr",
       times (var "input") (plus (aval 1) (aval 2)),
       [
-        Mini_RISC_CFG.LoadI (1, Mini_RISC_CFG.Rb);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rb, 2, Mini_RISC_CFG.Rb);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Mult, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Rb, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.LoadI (3, Mini_RISC_CFG.Ra);
+        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Mult, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Ra);
       ] );
   ] in
   List.iter (fun (name, expr, expected) -> assert_translation name expr expected) tests

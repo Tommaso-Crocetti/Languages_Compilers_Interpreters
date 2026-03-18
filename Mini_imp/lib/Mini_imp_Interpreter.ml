@@ -1,14 +1,12 @@
 exception Error of string
 
-type var = string
-
 module SMap = Map.Make(String)
 
 type state = int SMap.t
 
 type a_exp =
   | Aval of int
-  | Var of var
+  | Var of string
   | Of_Bool of b_exp
   | Plus of a_exp * a_exp
   | Minus of a_exp * a_exp
@@ -22,14 +20,14 @@ and b_exp =
 
 type command =
   | Skip
-  | Assign of var * a_exp
+  | Assign of string * a_exp
   | Seq of command * command
   | If of b_exp * command * command
   | While of b_exp * command
 
 type program = {
-  input: var;
-  output: var;
+  input: string;
+  output: string;
   body: command;
 }
 
