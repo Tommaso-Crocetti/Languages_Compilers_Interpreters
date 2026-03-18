@@ -12,6 +12,7 @@
 (* Main function, given a program compile it into RISC code*)
 let compile_from_cfg (program_cfg : Mini_imp_CFG.cfg) (input_var : string) (output_var : string)
     (output_file: string): unit =
+  let _ = Mini_imp_Dataflow.defined_analysis program_cfg in
   (* Translate the control flow graph into RISC cfg *)
   let (risc_cfg, final_reg_map) = Mini_RISC_CFG.translate_cfg program_cfg input_var output_var in
   (* Write the RISC code by iterating over the nodes *)
