@@ -1,4 +1,26 @@
 open Mini_imp_Lib
+open Mini_imp_AST
+open Mini_CFG_utils
+open Mini_imp_CFG
+
+let aval n = Mini_imp_AST.Aval n
+let var x = Mini_imp_AST.Var x
+let plus a1 a2 = Mini_imp_AST.Plus (a1, a2)
+let minus a1 a2 = Mini_imp_AST.Minus (a1, a2)
+let times a1 a2 = Mini_imp_AST.Times (a1, a2)
+let of_bool b = Mini_imp_AST.Of_Bool b
+
+let bval v = Mini_imp_AST.Bval v
+let and_ b1 b2 = Mini_imp_AST.And (b1, b2)
+let or_ b1 b2 = Mini_imp_AST.Or (b1, b2)
+let not_ b = Mini_imp_AST.Not b
+let minor a1 a2 = Mini_imp_AST.Minor (a1, a2)
+
+let skip = Mini_imp_AST.Skip
+let assign x a = Mini_imp_AST.Assign (x, a)
+let seq c1 c2 = Mini_imp_AST.Seq (c1, c2)
+let if_ b c1 c2 = Mini_imp_AST.If (b, c1, c2)
+let while_ b c = Mini_imp_AST.While (b, c)
 
 let programs_dir = "tests"
 
@@ -115,7 +137,7 @@ let assert_translation name expr expected =
 let find_unique_loadi_reg (cfg : Mini_RISC_CFG.risc_cfg) value =
   let matches =
     cfg.nodes
-    |> Mini_imp_CFG.NMap.bindings
+    |> Mini_CFG_utils.NMap.bindings
       |> List.filter_map (fun (_node_id, node_instructions) ->
         match node_instructions with
          | [Mini_RISC_CFG.LoadI (n, reg)] when n = value -> Some reg
@@ -147,7 +169,7 @@ let assert_same_reg name left right =
 let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   let matches =
     cfg.nodes
-    |> Mini_imp_CFG.NMap.bindings
+    |> Mini_CFG_utils.NMap.bindings
     |> List.filter_map (fun (node_id, (statements, _def_vars)) ->
          if predicate statements then Some node_id else None)
   in
@@ -157,7 +179,7 @@ let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   | _ -> failwith (Printf.sprintf "multiple CFG nodes found for %s" description)
 
 let assert_edge_equals (cfg : Mini_imp_CFG.cfg) src expected description =
-  match Mini_imp_CFG.NMap.find_opt src cfg.edges with
+  match Mini_CFG_utils.NMap.find_opt src cfg.edges with
   | Some actual when actual = expected -> ()
   | Some actual ->
       failwith
@@ -169,7 +191,7 @@ let assert_edge_equals (cfg : Mini_imp_CFG.cfg) src expected description =
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
 let edge_of (cfg : Mini_imp_CFG.cfg) src description =
-  match Mini_imp_CFG.NMap.find_opt src cfg.edges with
+  match Mini_CFG_utils.NMap.find_opt src cfg.edges with
   | Some edge -> edge
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
@@ -190,52 +212,52 @@ let run_nested_if_cfg_test () =
     find_unique_cfg_node
       cfg
       (function
-        | [Mini_imp_CFG.Guard (Mini_imp_Interpreter.Minor
-              (Mini_imp_Interpreter.Var "x", Mini_imp_Interpreter.Aval 0))] -> true
+          | [Mini_imp_CFG.Guard (Mini_imp_AST.Minor
+            (Mini_imp_AST.Var "x", Mini_imp_AST.Aval 0))] -> true
         | _ -> false)
       "outer guard"
   in
   let inner_then_guard_node, outer_else_guard_node =
     match edge_of cfg outer_guard_node "outer guard" with
-    | Mini_imp_CFG.Pair (left, right) -> (left, right)
-    | Mini_imp_CFG.Single _ -> failwith "outer guard should have a Pair edge"
+    | Mini_CFG_utils.Pair (left, right) -> (left, right)
+    | Mini_CFG_utils.Single _ -> failwith "outer guard should have a Pair edge"
   in
   let assign_z_1 =
     find_unique_cfg_node
       cfg
-      (function [Mini_imp_CFG.Assign ("z", Mini_imp_Interpreter.Aval 1)] -> true | _ -> false)
+      (function [Mini_imp_CFG.Assign ("z", Mini_imp_AST.Aval 1)] -> true | _ -> false)
       "z := 1"
   in
   let assign_z_0 =
     find_unique_cfg_node
       cfg
-      (function [Mini_imp_CFG.Assign ("z", Mini_imp_Interpreter.Aval 0)] -> true | _ -> false)
+      (function [Mini_imp_CFG.Assign ("z", Mini_imp_AST.Aval 0)] -> true | _ -> false)
       "z := 0"
   in
   let assign_x_1 =
     find_unique_cfg_node
       cfg
-      (function [Mini_imp_CFG.Assign ("x", Mini_imp_Interpreter.Aval 1)] -> true | _ -> false)
+      (function [Mini_imp_CFG.Assign ("x", Mini_imp_AST.Aval 1)] -> true | _ -> false)
       "x := 1"
   in
   let assign_x_2 =
     find_unique_cfg_node
       cfg
-      (function [Mini_imp_CFG.Assign ("x", Mini_imp_Interpreter.Aval 2)] -> true | _ -> false)
+      (function [Mini_imp_CFG.Assign ("x", Mini_imp_AST.Aval 2)] -> true | _ -> false)
       "x := 2"
   in
   let final_node =
     find_unique_cfg_node
       cfg
-      (function [Mini_imp_CFG.Assign ("y", Mini_imp_Interpreter.Var "z")] -> true | _ -> false)
+      (function [Mini_imp_CFG.Assign ("y", Mini_imp_AST.Var "z")] -> true | _ -> false)
       "y := z"
   in
-  assert_edge_equals cfg inner_then_guard_node (Mini_imp_CFG.Pair (assign_z_1, assign_z_0)) "inner then guard";
-  assert_edge_equals cfg outer_else_guard_node (Mini_imp_CFG.Pair (assign_x_1, assign_x_2)) "outer else guard";
-  assert_edge_equals cfg assign_z_1 (Mini_imp_CFG.Single final_node) "z:=1 exit";
-  assert_edge_equals cfg assign_z_0 (Mini_imp_CFG.Single final_node) "z:=0 exit";
-  assert_edge_equals cfg assign_x_1 (Mini_imp_CFG.Single final_node) "x:=1 exit";
-  assert_edge_equals cfg assign_x_2 (Mini_imp_CFG.Single final_node) "x:=2 exit"
+  assert_edge_equals cfg inner_then_guard_node (Mini_CFG_utils.Pair (assign_z_1, assign_z_0)) "inner then guard";
+  assert_edge_equals cfg outer_else_guard_node (Mini_CFG_utils.Pair (assign_x_1, assign_x_2)) "outer else guard";
+  assert_edge_equals cfg assign_z_1 (Mini_CFG_utils.Single final_node) "z:=1 exit";
+  assert_edge_equals cfg assign_z_0 (Mini_CFG_utils.Single final_node) "z:=0 exit";
+  assert_edge_equals cfg assign_x_1 (Mini_CFG_utils.Single final_node) "x:=1 exit";
+  assert_edge_equals cfg assign_x_2 (Mini_CFG_utils.Single final_node) "x:=2 exit"
 
 let run_cfg_scope_tests () =
   let open Mini_imp_Interpreter in

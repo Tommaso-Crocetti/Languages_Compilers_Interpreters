@@ -1,0 +1,26 @@
+type a_exp =
+  | Aval of int
+  | Var of string
+  | Of_Bool of b_exp
+  | Plus of a_exp * a_exp
+  | Minus of a_exp * a_exp
+  | Times of a_exp * a_exp
+and b_exp =
+  | Bval of bool
+  | And of b_exp * b_exp
+  | Or of b_exp * b_exp
+  | Not of b_exp
+  | Minor of a_exp * a_exp
+
+type command =
+  | Skip
+  | Assign of string * a_exp
+  | Seq of command * command
+  | If of b_exp * command * command
+  | While of b_exp * command
+
+type program = {
+  input_var: string;
+  output_var: string;
+  body: command;
+}

@@ -1,6 +1,11 @@
-module NMap = Mini_imp_CFG.NMap
+open Mini_imp_AST
+open Mini_imp_Parser
+open Mini_CFG_utils
+open Mini_imp_CFG
 
-module SSet = Mini_imp_CFG.SSet
+module NMap = Mini_CFG_utils.NMap
+
+module SSet = Mini_CFG_utils.SSet
 
 module ISet = Set.Make(Int)
 
@@ -8,14 +13,14 @@ type var_set = SSet.t
 
 type dataflow_node = 
   {
-    stmts: Mini_imp_CFG.statement list;
+    stmts: statement list;
     in_vars: var_set; (* Variables available at the entry of this statement *)
     out_vars: var_set; (* Variables available at the exit of this statement *)
   }
 
-type dataflow_cfg = (dataflow_node * var_set) Mini_imp_CFG.generic_cfg
+type dataflow_cfg = (dataflow_node * var_set) generic_cfg
 
-let build_dataflow_cfg (cfg: Mini_imp_CFG.cfg) : dataflow_cfg =
+let build_dataflow_cfg (cfg: cfg) : dataflow_cfg =
   let nodes = NMap.map (fun (stmts, def_vars) -> ({ stmts; in_vars = cfg.all_vars; out_vars = cfg.all_vars }, def_vars)) cfg.nodes in
   { nodes; edges = cfg.edges; initial = cfg.initial; final = cfg.final; all_vars = cfg.all_vars; input_var = cfg.input_var; output_var = cfg.output_var }
 
@@ -26,8 +31,8 @@ let string_of_var_set (s: var_set) : string =
 let find_predecessors (df_cfg: dataflow_cfg) (node_id: int) : int list =
   List.filter_map (fun (src_id, out_nodes) ->
       match out_nodes with
-      | Mini_imp_CFG.Single dst_id when dst_id = node_id -> Some src_id
-      | Mini_imp_CFG.Pair (dst_id1, dst_id2) when dst_id1 = node_id || dst_id2 = node_id -> Some src_id
+      | Single dst_id when dst_id = node_id -> Some src_id
+      | Pair (dst_id1, dst_id2) when dst_id1 = node_id || dst_id2 = node_id -> Some src_id
       | _ -> None)
     (NMap.bindings df_cfg.edges)
 
@@ -58,8 +63,8 @@ let defined_global_update (df_cfg: dataflow_cfg) : dataflow_cfg =
       | None -> (df_cfg, visited)
       | Some out_nodes -> 
         (match out_nodes with
-        | Mini_imp_CFG.Single next_id -> visit df_cfg next_id new_node visited
-        | Mini_imp_CFG.Pair (id1, id2) -> 
+        | Single next_id -> visit df_cfg next_id new_node visited
+        | Pair (id1, id2) -> 
           let (df_cfg, visited) = visit df_cfg id1 new_node visited in
           visit df_cfg id2 new_node visited
         )
@@ -67,37 +72,37 @@ let defined_global_update (df_cfg: dataflow_cfg) : dataflow_cfg =
         in let (df_cfg, _) = visit df_cfg df_cfg.initial dummy_init ISet.empty in
     df_cfg
 
-let rec get_used_avars (a: Mini_imp_Interpreter.a_exp) : var_set =
+let rec get_used_avars (a: a_exp) : var_set =
   match a with
-  | Mini_imp_Interpreter.Aval _ -> SSet.empty
-  | Mini_imp_Interpreter.Var x -> SSet.singleton x
-  | Mini_imp_Interpreter.Of_Bool b -> get_used_bvars b
-  | Mini_imp_Interpreter.Plus (a1, a2)
-  | Mini_imp_Interpreter.Minus (a1, a2)
-  | Mini_imp_Interpreter.Times (a1, a2) ->
+  | Aval _ -> SSet.empty
+  | Var x -> SSet.singleton x
+  | Of_Bool b -> get_used_bvars b
+  | Plus (a1, a2)
+  | Minus (a1, a2)
+  | Times (a1, a2) ->
     SSet.union (get_used_avars a1) (get_used_avars a2)
 
-and get_used_bvars (b: Mini_imp_Interpreter.b_exp) : var_set =
+and get_used_bvars (b: b_exp) : var_set =
   match b with
-  | Mini_imp_Interpreter.Bval _ -> SSet.empty
-  | Mini_imp_Interpreter.And (b1, b2)
-  | Mini_imp_Interpreter.Or (b1, b2) ->
+  | Bval _ -> SSet.empty
+  | And (b1, b2)
+  | Or (b1, b2) ->
     SSet.union (get_used_bvars b1) (get_used_bvars b2)
-  | Mini_imp_Interpreter.Not b1 -> get_used_bvars b1
-  | Mini_imp_Interpreter.Minor (a1, a2) -> SSet.union (get_used_avars a1) (get_used_avars a2)
+  | Not b1 -> get_used_bvars b1
+  | Minor (a1, a2) -> SSet.union (get_used_avars a1) (get_used_avars a2)
 
 let verify_node (df_cfg: dataflow_cfg) (node_id: int) : bool =
   let (df_node, _) = NMap.find node_id df_cfg.nodes in
-  let step (acc: var_set option) (stmt: Mini_imp_CFG.statement) : var_set option =
+  let step (acc: var_set option) (stmt: statement) : var_set option =
     match acc with
     | None -> None
     | Some curr_vars ->
       (match stmt with
-      | Mini_imp_CFG.Skip -> Some curr_vars
-      | Mini_imp_CFG.Assign (x, a) ->
+      | Skip -> Some curr_vars
+      | Assign (x, a) ->
         let used_vars = get_used_avars a in
         if SSet.subset used_vars curr_vars then Some (SSet.add x curr_vars) else None
-      | Mini_imp_CFG.Guard b ->
+      | Guard b ->
         let used_vars = get_used_bvars b in
         if SSet.subset used_vars curr_vars then Some curr_vars else None)
   in
@@ -113,7 +118,7 @@ let all_blocks_are_correct (df_cfg: dataflow_cfg) : bool =
   verify_all_nodes df_cfg
   |> List.for_all (fun (_, is_ok) -> is_ok)
 
-let defined_analysis (cfg: Mini_imp_CFG.cfg) : dataflow_cfg =
+let defined_analysis (cfg: cfg) : dataflow_cfg =
   let df_cfg = build_dataflow_cfg cfg in
   let final_df_cfg = defined_global_update df_cfg in 
   let rec fail_on_first_invalid (nodes: (int * (dataflow_node * var_set)) list) : unit =

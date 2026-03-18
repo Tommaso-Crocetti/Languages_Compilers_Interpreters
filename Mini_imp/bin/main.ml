@@ -1,4 +1,6 @@
-open Mini_imp_Lib
+open Mini_imp_Lib.Mini_imp_FlagHandler
+open Mini_imp_Lib.Mini_imp_Interpreter
+open Mini_imp_Lib.Mini_imp_Compiler
 
 let () =
   let show_tokens = ref false in
@@ -22,7 +24,7 @@ let () =
   | Some path ->
       (match !output_file with
       | Some out ->
-          Mini_imp_FlagHandler.analyze_and_compile_file
+          analyze_and_compile_file
             ~show_tokens:!show_tokens
             ~show_ast:!show_ast
             ~show_cfg:!show_cfg
@@ -31,14 +33,14 @@ let () =
           Printf.printf "Compiled %s -> %s\n" path out
       | None ->
           let program =
-            Mini_imp_FlagHandler.analyze_file
+            analyze_file
               ~show_tokens:!show_tokens
               ~show_ast:!show_ast
               ~show_cfg:!show_cfg
               ~show_risc_cfg:!show_risc_cfg
               path
           in
-          Mini_imp_Interpreter.run_program program)
+          run_program program)
   | None ->
       prerr_endline usage;
       exit 1

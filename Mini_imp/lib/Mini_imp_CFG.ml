@@ -1,30 +1,13 @@
+open Mini_imp_Parser
+open Mini_imp_AST
+open Mini_CFG_utils
+
 exception Error of string
 
 type statement =
   | Skip
-  | Assign of string * Mini_imp_Interpreter.a_exp
-  | Guard of Mini_imp_Interpreter.b_exp
-
-type out_node =
-  | Single of int
-  | Pair of int * int
-
-module NMap = Map.Make(Int)
-
-module SSet = Set.Make(String)
-
-type var_set = SSet.t
-
-type 'a generic_cfg = 
-{
-  nodes: 'a NMap.t;
-  edges: out_node NMap.t;
-  initial: int;
-  final: int list;
-  input_var: string;
-  output_var: string;
-  all_vars: var_set;
-}
+  | Assign of string * a_exp
+  | Guard of b_exp
 
 type cfg = (statement list * var_set) generic_cfg
 
@@ -45,40 +28,6 @@ let empty_cfg : cfg =
     output_var = "";
     all_vars = SSet.empty;
   }
-
-let rec find_all_vars_aexp (a: Mini_imp_Interpreter.a_exp) : var_set =
-  match a with
-  | Mini_imp_Interpreter.Aval _ -> SSet.empty
-  | Mini_imp_Interpreter.Var x -> SSet.singleton x
-  | Mini_imp_Interpreter.Of_Bool b -> find_all_vars_bexp b
-  | Mini_imp_Interpreter.Plus (a1, a2)
-  | Mini_imp_Interpreter.Minus (a1, a2)
-  | Mini_imp_Interpreter.Times (a1, a2) ->
-      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
-
-and find_all_vars_bexp (b: Mini_imp_Interpreter.b_exp) : var_set =
-  match b with
-  | Mini_imp_Interpreter.Bval _ -> SSet.empty
-  | Mini_imp_Interpreter.And (b1, b2)
-  | Mini_imp_Interpreter.Or (b1, b2) ->
-      SSet.union (find_all_vars_bexp b1) (find_all_vars_bexp b2)
-  | Mini_imp_Interpreter.Not b1 -> find_all_vars_bexp b1
-  | Mini_imp_Interpreter.Minor (a1, a2) ->
-      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
-
-let rec find_all_vars_command (c: Mini_imp_Interpreter.command) : var_set =
-  match c with
-  | Mini_imp_Interpreter.Skip -> SSet.empty
-  | Mini_imp_Interpreter.Assign (x, a) -> SSet.add x (find_all_vars_aexp a)
-  | Mini_imp_Interpreter.Seq (c1, c2) ->
-      SSet.union (find_all_vars_command c1) (find_all_vars_command c2)
-  | Mini_imp_Interpreter.If (b, c1, c2) ->
-      SSet.union
-        (find_all_vars_bexp b)
-        (SSet.union (find_all_vars_command c1) (find_all_vars_command c2))
-  | Mini_imp_Interpreter.While (b, c1) ->
-      SSet.union (find_all_vars_bexp b) (find_all_vars_command c1)
-
 
 (* Adds a new node to the CFG with the given statements, always ensuring that it is the final node *)
 let add_node (g: cfg) (stmts: statement list) (def_vars: var_set) : cfg =
@@ -109,28 +58,28 @@ let connect_pending_node (g: cfg) (src: int) (dst: int) : cfg =
     | Some (Pair (left_dst, _)) -> add_edge g src (Pair (left_dst, dst))
 
 (* Given a .mimp program, incrementally builds a control flow graph *)
-let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
-    let all_vars = find_all_vars_command p.Mini_imp_Interpreter.body in
-    let initial_cfg = {empty_cfg with input_var = p.Mini_imp_Interpreter.input; output_var = p.Mini_imp_Interpreter.output; all_vars = all_vars} in
+let make_cfg (p: program) : cfg =
+  let all_vars = find_all_vars_command p.body in
+    let initial_cfg = {empty_cfg with input_var = p.input_var; output_var = p.output_var; all_vars = all_vars} in
     (* Recursive function to process a command and incrementally update the CFG,
     according also to the pending statements and the last seen command *)
-    let rec dfs (c: Mini_imp_Interpreter.command) (g: cfg) (stmts: statement list) (def_vars: var_set) (last_command: Mini_imp_Parser.token) : cfg * statement list * var_set * Mini_imp_Parser.token =
+    let rec dfs (c: command) (g: cfg) (stmts: statement list) (def_vars: var_set) (last_command: token) : cfg * statement list * var_set * token =
       match c with
       (* Process a skip command, just inform that Skip was the last command *)
-      | Mini_imp_Interpreter.Skip -> (g, stmts, def_vars, Mini_imp_Parser.SKIP)
+      | Skip -> (g, stmts, def_vars, SKIP)
       (* Process an assignment command, add it to the pending statements *)
-      | Mini_imp_Interpreter.Assign (x, a) ->
+      | Assign (x, a) ->
         (match stmts with
-        | [Skip] -> (g, [Assign (x, a)], SSet.add x def_vars, Mini_imp_Parser.ASSIGN)
-        | _ -> (g, Assign (x, a)::stmts, SSet.add x def_vars, Mini_imp_Parser.ASSIGN))
+        | [Skip] -> (g, [Assign (x, a)], SSet.add x def_vars, ASSIGN)
+        | _ -> (g, Assign (x, a)::stmts, SSet.add x def_vars, ASSIGN))
       (* Process a sequence of commands, in the given order *)
-      | Mini_imp_Interpreter.Seq (c1, c2) -> 
+      | Seq (c1, c2) -> 
         let (g, stmts1, def_vars1, prev_command) = dfs c1 g stmts def_vars last_command in
         let (g, stmts2, def_vars2, prev_command) = dfs c2 g stmts1 def_vars1 prev_command in
         (g, stmts2, def_vars2, prev_command)
       (* Process an if statement, creating a new node with pending statements + guard, 
       then recursively processing the branches *)
-      | Mini_imp_Interpreter.If (b, c1, c2) ->
+      | If (b, c1, c2) ->
         (* Retrieve the previous final nodes *)
         let previous_final_nodes = g.final in 
         let pending_stmts =
@@ -145,7 +94,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
           | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the if statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
-        let g' = if last_command <> Mini_imp_Parser.ELSE then
+        let g' = if last_command <> ELSE then
               List.fold_left (fun cfg node_id -> connect_pending_node cfg node_id new_final_node) g' previous_final_nodes
         else g' in
         (* Compute the entry node for the then branch *)
@@ -226,7 +175,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
         (g_f, [Skip], SSet.empty, previous_command)
       (* Process a while statement, creating a new node with pending statements,
       a specfic node for the guard, then recursively processing the body *)
-      | Mini_imp_Interpreter.While (b, c) ->
+      | While (b, c) ->
         (* Retrieve the previous final nodes *)
         let previous_final_nodes = g.final in 
         (* If there are no pending statements, it is necessary to create a skip statement *)
@@ -241,7 +190,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
           | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the while statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
-        let g' = if last_command <> Mini_imp_Parser.ELSE then
+        let g' = if last_command <> ELSE then
               List.fold_left (fun cfg node_id -> connect_pending_node cfg node_id pre_guard_node) g_pre previous_final_nodes
             else g_pre
         in
@@ -293,7 +242,7 @@ let make_cfg (p: Mini_imp_Interpreter.program) : cfg =
         let g_f = {g2 with final = [guard_node]} in
         (g_f, [Skip], SSet.empty, previous_command)
     (* Start the cfg construction *)
-    in let cfg, final_stmts, final_def_vars, final_command = dfs p.Mini_imp_Interpreter.body initial_cfg [] SSet.empty Mini_imp_Parser.SKIP in
+    in let cfg, final_stmts, final_def_vars, final_command = dfs p.body initial_cfg [] SSet.empty SKIP in
     (* Final backpatch with the last list of statements of the program *)
     let pending_final_nodes = cfg.final in
     (* Create a node with the final pending statements *)

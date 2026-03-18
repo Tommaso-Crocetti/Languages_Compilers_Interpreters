@@ -1,57 +1,12 @@
+open Mini_imp_AST
 exception Error of string
 
 module SMap = Map.Make(String)
 
 type state = int SMap.t
 
-type a_exp =
-  | Aval of int
-  | Var of string
-  | Of_Bool of b_exp
-  | Plus of a_exp * a_exp
-  | Minus of a_exp * a_exp
-  | Times of a_exp * a_exp
-and b_exp =
-  | Bval of bool
-  | And of b_exp * b_exp
-  | Or of b_exp * b_exp
-  | Not of b_exp
-  | Minor of a_exp * a_exp
-
-type command =
-  | Skip
-  | Assign of string * a_exp
-  | Seq of command * command
-  | If of b_exp * command * command
-  | While of b_exp * command
-
-type program = {
-  input: string;
-  output: string;
-  body: command;
-}
-
-let aval n = Aval n
-let var x = Var x
-let of_bool b = Of_Bool b
-let plus a1 a2 = Plus (a1, a2)
-let minus a1 a2 = Minus (a1, a2)
-let times a1 a2 = Times (a1, a2)
-
-let bval v = Bval v
-let and_ b1 b2 = And (b1, b2)
-let or_ b1 b2 = Or (b1, b2)
-let not_ b = Not b
-let minor a1 a2 = Minor (a1, a2)
-
-let skip = Skip
-let assign x a = Assign (x, a)
-let seq c1 c2 = Seq (c1, c2)
-let if_ b c1 c2 = If (b, c1, c2)
-let while_ b c = While (b, c)
-
-let make_program input output body =
-  { input; output; body }
+let make_program input_var output_var body =
+  { input_var; output_var; body }
 
 let rec eval_aexp (a:a_exp) (s:state) : int =
   match a with
@@ -83,11 +38,11 @@ let rec eval_c (c: command) (s: state): state =
 
 let execute (p: program) (n: int): int =
     let command = p.body in
-    let initial_state = SMap.add p.input n SMap.empty in
+    let initial_state = SMap.add p.input_var n SMap.empty in
     let final_state = eval_c command initial_state in
-    match SMap.find_opt p.output final_state with
+    match SMap.find_opt p.output_var final_state with
     | Some v -> v
-    | None -> raise (Error ("Runtime error, output variable " ^ p.output ^ " not found in final state."))
+    | None -> raise (Error ("Runtime error, output variable " ^ p.output_var ^ " not found in final state."))
 
 let run_program (program : program) =
   print_endline "=== Input ===";
