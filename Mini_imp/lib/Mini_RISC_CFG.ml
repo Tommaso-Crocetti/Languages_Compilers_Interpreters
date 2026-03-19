@@ -69,7 +69,7 @@ let translate_cfg (g: cfg): risc_cfg =
     match g.final with
     | [] -> g.initial
     | [n] -> n
-    | _ -> raise (Error "RISC-CFG error: multiple final nodes not supported")
+    | _ -> raise (Error "multiple final nodes not expected")
   in
   let initial_risc_cfg = 
     { empty_risc_cfg with initial = g.initial; 

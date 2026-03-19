@@ -40,8 +40,9 @@ let parse_program ~(show_tokens : bool) ~(show_ast : bool) (input_file : string)
 let run_program (program : program) =
   print_endline "=== Input ===";
   let input = read_int () in
+  let result = execute program input in
   print_endline "=== Output ===";
-  print_int (execute program input);
+  print_int result;
   print_newline ()
 
 let () =
@@ -58,21 +59,25 @@ let () =
   match List.rev !positional with
   | [input_file] ->
       (try
-         let program =
-           parse_program
-             ~show_tokens:!show_tokens
-             ~show_ast:!show_ast
-             input_file
+      	let program =
+          parse_program
+            ~show_tokens:!show_tokens
+            ~show_ast:!show_ast
+            input_file
          in
          run_program program
        with
-       | Sys_error msg
-       | Failure msg ->
+				| Sys_error msg
+				| Failure msg ->
            prerr_endline msg;
            exit 1
-       | Mini_imp_Lib.Mini_imp_Parser.Error ->
-           prerr_endline "Parse error while reading MiniImp source file.";
-           exit 1)
-  | _ ->
+				| Mini_imp_Lib.Mini_imp_Lexer.Error msg -> 
+            prerr_endline ("Lexing error while reading " ^ input_file ^ ": " ^ msg);
+      	| Mini_imp_Lib.Mini_imp_Parser.Error ->
+           prerr_endline ("Syntax error while reading " ^ input_file);
+        | Mini_imp_Lib.Mini_imp_AST.Error msg -> 
+            prerr_endline ("Runtime error: " ^ msg);
+        exit 1)
+	| _ ->
       prerr_endline usage;
       exit 2

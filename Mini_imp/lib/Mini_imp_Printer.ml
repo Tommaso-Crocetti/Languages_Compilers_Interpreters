@@ -36,6 +36,9 @@ let string_of_token (tok : token) : string =
   | RPAREN -> "RPAREN"
   | EOF -> "EOF"
 
+let string_of_position (pos: Lexing.position) : string =
+  Printf.sprintf "line %d, column %d" pos.pos_lnum (pos.pos_cnum - pos.pos_bol)
+
 let rec aexp_to_string (a: a_exp): string =
   match a with
   | Aval n -> string_of_int n
@@ -168,6 +171,10 @@ let risc_cfg_to_string (cfg: risc_cfg) : string =
 
 let reg_map_to_string (reg_map: var_to_reg) : string =
   String.concat ", " (List.map (fun (var, reg) -> Printf.sprintf "%s -> %s" var (string_of_risc_reg reg)) (SMap.bindings reg_map))
+
+let var_set_to_string (s: var_set) : string =
+  let elems = SSet.elements s in
+  "{" ^ String.concat ", " elems ^ "}"
 
 let risc_cfg_and_reg_map_to_string
   (risc_cfg : risc_cfg)

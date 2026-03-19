@@ -6,7 +6,7 @@ exception Error of string
 
 type reg = Rin | Rout | Ra | Rb | RVar of int
 
-module SMap = Map.Make(String)
+module SMap = Mini_Modules.SMap
 
 (* A mapping from variable names to registers *)
 type var_to_reg = reg SMap.t
@@ -79,7 +79,7 @@ let rec translate_aexpr
   | Times (a1, a2) ->
     translate_commutative_aexpr Mult MultI a1 a2 target_reg temp_regs reg_map
   | Of_Bool _ ->
-    raise (Error "RISC-CFG error: of_bool not supported")
+    raise (Error "of_bool not supported")
 
 (* Helper function that translates commutative arithmetic expressions *)
 and translate_commutative_aexpr (brop : brop) (biop : biop)
@@ -94,7 +94,7 @@ and translate_commutative_aexpr (brop : brop) (biop : biop)
     (match brop with
     | Add -> (result_reg, [LoadI (n1 + n2, result_reg)])
     | Mult -> (result_reg, [LoadI (n1 * n2, result_reg)])
-    | _ -> raise (Error "RISC-CFG error: unsupported commutative binary operation")
+    | _ -> raise (Error "unsupported commutative binary operation")
     )
   (* n op a / a op n, different cases can be considered *)
   | (Aval n, a) | (a, Aval n) ->

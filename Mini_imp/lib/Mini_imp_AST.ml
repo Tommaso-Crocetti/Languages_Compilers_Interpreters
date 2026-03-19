@@ -27,7 +27,7 @@ type program = {
   body: command;
 }
 
-module SMap = Map.Make(String)
+module SMap = Mini_Modules.SMap
 
 type state = int SMap.t
 
@@ -40,7 +40,7 @@ let rec eval_aexp (a:a_exp) (s:state) : int =
    | Var x ->
     (match SMap.find_opt x s with
     | Some n -> n
-    | None -> raise (Error ("Runtime error, variable " ^ x ^ " not found in state."))
+    | None -> raise (Error ("variable " ^ x ^ " not found in state."))
     )
    | Of_Bool b -> if eval_bexp b s then 1 else 0
    | Plus (a1, a2) -> (eval_aexp a1 s) + (eval_aexp a2 s)
@@ -68,4 +68,4 @@ let execute (p: program) (n: int): int =
     let final_state = eval_c command initial_state in
     match SMap.find_opt p.output_var final_state with
     | Some v -> v
-    | None -> raise (Error ("Runtime error, output variable " ^ p.output_var ^ " not found in final state."))
+    | None -> raise (Error ("output variable " ^ p.output_var ^ " not found in final state."))

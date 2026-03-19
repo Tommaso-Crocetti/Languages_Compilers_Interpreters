@@ -50,4 +50,4 @@ rule read = parse
   | id as x   { VAR x }
   | white   { read lexbuf }
 
-  | _ { raise (Error ("Syntax error, unexpected character: " ^ Lexing.lexeme lexbuf)) }
+  | _ { raise (Error ("unexpected character " ^ Lexing.lexeme lexbuf)) }

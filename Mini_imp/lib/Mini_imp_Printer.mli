@@ -6,6 +6,7 @@ open Mini_RISC
 open Mini_RISC_CFG
 
 val string_of_token : token -> string
+val string_of_position : Lexing.position -> string
 val aexp_to_string : a_exp -> string
 val bexp_to_string : b_exp -> string
 val command_to_string : command -> string

@@ -1,0 +1,10 @@
+(lang dune 3.21)
+(name Mini_imp)
+(sections
+ (lib
+  C:\Users\tomma\Desktop\Unipi\Languages_Compilers_and_Interpreters\Mini_imp\_install/lib/Mini_imp)
+ (bin
+  C:\Users\tomma\Desktop\Unipi\Languages_Compilers_and_Interpreters\Mini_imp\_install/bin))
+(files
+ (lib (META dune-package opam))
+ (bin (Mini_imp_compiler.exe Mini_imp_interpreter.exe)))

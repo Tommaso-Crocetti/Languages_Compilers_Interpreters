@@ -1,10 +1,10 @@
 open Mini_imp_AST
 
-module SSet : Set.S with type elt = String.t
+module SSet = Mini_Modules.SSet
 
 type var_set = SSet.t
 
-module NMap : Map.S with type key = int
+module NMap = Mini_Modules.NMap
 
 type out_node =
   | Single of int

@@ -1,3 +1,5 @@
+exception Error of string
+
 type a_exp =
   | Aval of int
   | Var of string

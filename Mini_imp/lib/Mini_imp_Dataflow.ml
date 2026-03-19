@@ -3,6 +3,8 @@ open Mini_imp_Parser
 open Mini_CFG
 open Mini_imp_CFG
 
+exception Error of string
+
 module NMap = Mini_CFG.NMap
 
 module SSet = Mini_CFG.SSet
@@ -23,10 +25,6 @@ type dataflow_cfg = (dataflow_node * var_set) generic_cfg
 let build_dataflow_cfg (cfg: cfg) : dataflow_cfg =
   let nodes = NMap.map (fun (stmts, def_vars) -> ({ stmts; in_vars = cfg.all_vars; out_vars = cfg.all_vars }, def_vars)) cfg.nodes in
   { nodes; edges = cfg.edges; initial = cfg.initial; final = cfg.final; all_vars = cfg.all_vars; input_var = cfg.input_var; output_var = cfg.output_var }
-
-let string_of_var_set (s: var_set) : string =
-  let elems = SSet.elements s in
-  "{" ^ String.concat ", " elems ^ "}"
 
 let find_predecessors (df_cfg: dataflow_cfg) (node_id: int) : int list =
   List.filter_map (fun (src_id, out_nodes) ->
@@ -72,25 +70,6 @@ let defined_global_update (df_cfg: dataflow_cfg) : dataflow_cfg =
         in let (df_cfg, _) = visit df_cfg df_cfg.initial dummy_init ISet.empty in
     df_cfg
 
-let rec get_used_avars (a: a_exp) : var_set =
-  match a with
-  | Aval _ -> SSet.empty
-  | Var x -> SSet.singleton x
-  | Of_Bool b -> get_used_bvars b
-  | Plus (a1, a2)
-  | Minus (a1, a2)
-  | Times (a1, a2) ->
-    SSet.union (get_used_avars a1) (get_used_avars a2)
-
-and get_used_bvars (b: b_exp) : var_set =
-  match b with
-  | Bval _ -> SSet.empty
-  | And (b1, b2)
-  | Or (b1, b2) ->
-    SSet.union (get_used_bvars b1) (get_used_bvars b2)
-  | Not b1 -> get_used_bvars b1
-  | Minor (a1, a2) -> SSet.union (get_used_avars a1) (get_used_avars a2)
-
 let verify_node (df_cfg: dataflow_cfg) (node_id: int) : bool =
   let (df_node, _) = NMap.find node_id df_cfg.nodes in
   let step (acc: var_set option) (stmt: statement) : var_set option =
@@ -100,10 +79,10 @@ let verify_node (df_cfg: dataflow_cfg) (node_id: int) : bool =
       (match stmt with
       | Skip -> Some curr_vars
       | Assign (x, a) ->
-        let used_vars = get_used_avars a in
+        let used_vars = find_all_vars_aexp a in
         if SSet.subset used_vars curr_vars then Some (SSet.add x curr_vars) else None
       | Guard b ->
-        let used_vars = get_used_bvars b in
+        let used_vars = find_all_vars_bexp b in
         if SSet.subset used_vars curr_vars then Some curr_vars else None)
   in
   match List.fold_left step (Some df_node.in_vars) df_node.stmts with
@@ -126,7 +105,7 @@ let defined_analysis (cfg: cfg) : dataflow_cfg =
     | [] -> ()
     | (node_id, _) :: rest ->
       if verify_node final_df_cfg node_id then fail_on_first_invalid rest
-      else failwith ("Dataflow verification failed at block: " ^ string_of_int node_id)
+      else raise (Error ("verification failed at block " ^ string_of_int node_id))
   in
   fail_on_first_invalid (NMap.bindings final_df_cfg.nodes);
   final_df_cfg

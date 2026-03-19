@@ -82,7 +82,7 @@ let make_cfg (p: program) : cfg =
         let g' = add_node g (List.rev (Guard b::pending_stmts)) def_vars in
         let new_final_node = match g'.final with
           | [n] -> n
-          | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the if statement.")
+          | _ -> raise (Error "expected a single final node built from pending statements before the if statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
         let g' = if last_command <> ELSE then
@@ -106,7 +106,7 @@ let make_cfg (p: program) : cfg =
             let g1'' = add_node g1 (List.rev then_stmts) def_vars_then in
             let then_join_node = match g1''.final with
               | [n] -> n
-              | _ -> raise (Error "CFG error: expected a single final node built from pending statements in the then branch.")
+              | _ -> raise (Error "expected a single final node built from pending statements in the then branch.")
             in
             (* Backpatch: the previous final nodes of the then branch 
             must point to the new node *)
@@ -141,7 +141,7 @@ let make_cfg (p: program) : cfg =
             let g2'' = add_node g2 (List.rev else_stmts) def_vars_else in
             let else_final_node = match g2''.final with
               | [n] -> n
-              | _ -> raise (Error "CFG error: expected a single final node built from pending statements in the else branch.")
+              | _ -> raise (Error "expected a single final node built from pending statements in the else branch.")
             in
             (* Backpatch: the previous final nodes of the else branch
             must point to the new node,
@@ -178,7 +178,7 @@ let make_cfg (p: program) : cfg =
         let g_pre = add_node g pre_guard_stmts def_vars in
         let pre_guard_node = match g_pre.final with
           | [n] -> n
-          | _ -> raise (Error "CFG error: expected a single final node built from pending statements before the while statement.")
+          | _ -> raise (Error "expected a single final node built from pending statements before the while statement.")
         in
         (* Avoid backpatching if the last command is ELSE *)
         let g' = if last_command <> ELSE then
@@ -189,7 +189,7 @@ let make_cfg (p: program) : cfg =
         let g' = add_node g' [Guard b] SSet.empty in
         let guard_node = match g'.final with
           | [n] -> n
-          | _ -> raise (Error "CFG error: expected a single final node containing the while guard.")
+          | _ -> raise (Error "expected a single final node containing the while guard.")
         in
         (* Connect the pre-guard node to the guard node *)
         let g_guard = add_edge g' pre_guard_node (Single guard_node) in
@@ -203,7 +203,7 @@ let make_cfg (p: program) : cfg =
             let g_body = add_node g_while (List.rev body_stmts) def_vars_body in
             let body_join_node = match g_body.final with
               | [n] -> n
-              | _ -> raise (Error "CFG error: expected a single final node built from pending statements of the while body.")
+              | _ -> raise (Error "expected a single final node built from pending statements of the while body.")
             in
             (* Backpatch: the previous final nodes of the body must point to the new node *)
             List.fold_left
@@ -240,7 +240,7 @@ let make_cfg (p: program) : cfg =
     let cfg' = if final_stmts != [] then add_node cfg (List.rev final_stmts) final_def_vars else cfg in
     let final_node = match cfg'.final with
       | [n] -> n
-      | _ -> raise (Error "CFG error: expected a single final node built from pending statements at the end of the program.")
+      | _ -> raise (Error ("expected a single final node built from pending statements at the end of the program."))
     in
     (* Backpatch: the previous final nodes must point to the new final node *)
     if final_stmts != [] then

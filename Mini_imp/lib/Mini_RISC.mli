@@ -6,7 +6,7 @@ exception Error of string
 
 type reg = Rin | Rout | Ra | Rb | RVar of int
 
-module SMap : Map.S with type key = String.t
+module SMap = Mini_Modules.SMap
 
 type var_to_reg = reg SMap.t
 

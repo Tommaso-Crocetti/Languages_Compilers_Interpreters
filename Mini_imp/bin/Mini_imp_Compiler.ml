@@ -2,10 +2,10 @@ open Mini_imp_Lib.Mini_imp_Lexer
 open Mini_imp_Lib.Mini_imp_Parser
 open Mini_imp_Lib.Mini_CFG
 open Mini_imp_Lib.Mini_imp_CFG
-open Mini_imp_Lib.Mini_RISC_CFG
 open Mini_imp_Lib.Mini_RISC
-open Mini_imp_Lib.Mini_imp_Printer
+open Mini_imp_Lib.Mini_RISC_CFG
 open Mini_imp_Lib.Mini_imp_Dataflow
+open Mini_imp_Lib.Mini_imp_Printer
 
 let usage =
 	"Usage: Mini_imp_compiler [--check-undefined] <input.mimp> <output.risc>"
@@ -43,22 +43,30 @@ let () =
 
 	match List.rev !positional with
 	| [input_file; output_file] ->
-			(try
-				 compile_file
-					 ~check_undefined:!check_undefined
-					 ~input_file
-					 ~output_file;
-				 Printf.printf "Compiled %s -> %s\n" input_file output_file
-			 with
-			 | Sys_error msg
-			 | Failure msg ->
+    (try
+			compile_file
+        ~check_undefined:!check_undefined
+        ~input_file
+        ~output_file;
+      Printf.printf "Compiled %s -> %s\n" input_file output_file
+			with
+			  | Sys_error msg
+			  | Failure msg ->
 					 prerr_endline msg;
 					 exit 1
-			 | Mini_imp_Lib.Mini_imp_Parser.Error ->
+        | Mini_imp_Lib.Mini_imp_Lexer.Error msg ->
+            prerr_endline ("Lexing error while reading " ^ input_file ^ ": " ^ msg);
+			  | Mini_imp_Lib.Mini_imp_Parser.Error ->
 					 prerr_endline "Parse error while reading MiniImp source file.";
 					 exit 1
-			 | Mini_imp_Lib.Mini_RISC_CFG.Error msg ->
-					 prerr_endline msg;
+        | Mini_imp_Lib.Mini_imp_CFG.Error msg ->
+            prerr_endline ("CFG error: " ^ msg);
+        | Mini_imp_Lib.Mini_RISC.Error msg ->
+            prerr_endline ("RISC error: " ^ msg);
+			  | Mini_imp_Lib.Mini_RISC_CFG.Error msg ->
+					 prerr_endline ("RISC CFG error: " ^ msg);
+        | Mini_imp_Lib.Mini_imp_Dataflow.Error msg ->
+            prerr_endline ("Dataflow analysis error: " ^ msg);
 					 exit 1)
 	| _ ->
 			prerr_endline usage;
