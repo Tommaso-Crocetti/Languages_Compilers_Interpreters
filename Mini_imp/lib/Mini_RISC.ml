@@ -1,12 +1,13 @@
+open Mini_Modules
 open Mini_imp_AST
 open Mini_CFG
 open Mini_imp_CFG
 
 exception Error of string
 
-type reg = Rin | Rout | Ra | Rb | RVar of int
-
 module SMap = Mini_Modules.SMap
+
+type reg = Rin | Rout | Ra | Rb | RVar of int
 
 (* A mapping from variable names to registers *)
 type var_to_reg = reg SMap.t

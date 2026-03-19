@@ -10,7 +10,9 @@ module SMap = Mini_Modules.SMap
 
 type var_to_reg = reg SMap.t
 
-type reg_set
+module RSet : Set.S with type elt = reg
+
+type reg_set = RSet.t
 
 type brop = Add | Sub | Mult | And | Or | Less
 type biop = AddI | SubI | MultI | AndI | OrI

@@ -54,7 +54,7 @@ let defined_local_update (df_cfg: dataflow_cfg) (node_id: int) (predecessors: in
 
 let defined_global_update (df_cfg: dataflow_cfg) : dataflow_cfg =
   let predecessors_map = IMap.fold (fun node_id _ acc -> IMap.add node_id (find_predecessors df_cfg node_id) acc) df_cfg.nodes IMap.empty in
-  let rec visit (df_cfg: dataflow_cfg) (node_id: int) (previous_node: dataflow_node) (visited: ISet.t) : dataflow_cfg * ISet.t =
+  let rec visit (df_cfg: dataflow_cfg) (node_id: int) (visited: ISet.t) : dataflow_cfg * ISet.t =
     let (df_node, def_vars) = IMap.find node_id df_cfg.nodes in
     let (prev_in_vars, prev_out_vars) = (df_node.in_vars, df_node.out_vars) in
     let (new_in_vars, new_out_vars) = defined_local_update df_cfg node_id (IMap.find node_id predecessors_map) in
@@ -67,13 +67,12 @@ let defined_global_update (df_cfg: dataflow_cfg) : dataflow_cfg =
       | None -> (df_cfg, visited)
       | Some out_nodes -> 
         (match out_nodes with
-        | Single next_id -> visit df_cfg next_id new_node visited
+        | Single next_id -> visit df_cfg next_id visited
         | Pair (id1, id2) -> 
-          let (df_cfg, visited) = visit df_cfg id1 new_node visited in
-          visit df_cfg id2 new_node visited
+          let (df_cfg, visited) = visit df_cfg id1 visited in
+          visit df_cfg id2 visited
         )
-        in let dummy_init = { stmts = []; in_vars = SSet.empty; out_vars = SSet.empty }
-        in let (df_cfg, _) = visit df_cfg df_cfg.initial dummy_init ISet.empty in
+        in let (df_cfg, _) = visit df_cfg df_cfg.initial ISet.empty in
     df_cfg
 
 let verify_node (df_cfg: dataflow_cfg) (node_id: int) : node_verification_result =
