@@ -2,7 +2,7 @@ open Mini_imp_AST
 
 module SSet = Mini_Modules.SSet
 
-type var_set = SSet.t
+type var_set = Mini_imp_AST.var_set
 
 module IMap = Mini_Modules.IMap
 
@@ -11,17 +11,17 @@ type out_node =
   | Pair of int * int
 
 type 'a generic_cfg = 
-{
-  nodes: 'a IMap.t;
-  edges: out_node IMap.t;
-  initial: int;
-  final: int list;
-  input_var: string;
-  output_var: string;
-  all_vars: var_set;
-}
+  {
+    nodes: 'a IMap.t;
+    edges: out_node IMap.t;
+    initial: int;
+    final: int list;
+    input_var: string;
+    output_var: string;
+    all_vars: var_set;
+  }
 
-let empty_generic_cfg: 'a generic_cfg =
+let empty_cfg: 'a generic_cfg =
   {
     nodes = IMap.empty;
     edges = IMap.empty;
@@ -32,49 +32,24 @@ let empty_generic_cfg: 'a generic_cfg =
     all_vars = SSet.empty;
   }
 
-let generic_add_node
+let add_node
   (cfg : 'a generic_cfg)
   (node_id : int)
   (node : 'a)
   : 'a generic_cfg =
   { cfg with nodes = IMap.add node_id node cfg.nodes }
 
-let generic_add_edge
+let add_edge
   (cfg : 'a generic_cfg)
   (src : int)
   (dst : out_node)
   : 'a generic_cfg =
   { cfg with edges = IMap.add src dst cfg.edges }
 
-let rec find_all_vars_aexp (a: a_exp) : var_set =
-  match a with
-  | Aval _ -> SSet.empty
-  | Var x -> SSet.singleton x
-  | Of_Bool b -> find_all_vars_bexp b
-  | Plus (a1, a2)
-  | Minus (a1, a2)
-  | Times (a1, a2) ->
-      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
-
-and find_all_vars_bexp (b: b_exp) : var_set =
-  match b with
-  | Bval _ -> SSet.empty
-  | And (b1, b2)
-  | Or (b1, b2) ->
-      SSet.union (find_all_vars_bexp b1) (find_all_vars_bexp b2)
-  | Not b1 -> find_all_vars_bexp b1
-  | Minor (a1, a2) ->
-      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
-
-let rec find_all_vars_command (c: command) : var_set =
-  match c with
-  | Skip -> SSet.empty
-  | Assign (x, a) -> SSet.add x (find_all_vars_aexp a)
-  | Seq (c1, c2) ->
-      SSet.union (find_all_vars_command c1) (find_all_vars_command c2)
-  | If (b, c1, c2) ->
-      SSet.union
-        (find_all_vars_bexp b)
-        (SSet.union (find_all_vars_command c1) (find_all_vars_command c2))
-  | While (b, c1) ->
-      SSet.union (find_all_vars_bexp b) (find_all_vars_command c1)
+let find_predecessors (g: 'a generic_cfg) (node_id: int): int list =
+	List.filter_map (fun (src_id, out_nodes) ->
+			match out_nodes with
+			| Single dst_id when dst_id = node_id -> Some src_id
+			| Pair (dst_id1, dst_id2) when dst_id1 = node_id || dst_id2 = node_id -> Some src_id
+			| _ -> None)
+		(IMap.bindings g.edges)

@@ -29,7 +29,11 @@ type program = {
 
 module SMap = Mini_Modules.SMap
 
+module SSet = Mini_Modules.SSet
+
 type state = int SMap.t
+
+type var_set = SSet.t
 
 let make_program input_var output_var body =
   { input_var; output_var; body }
@@ -69,3 +73,37 @@ let execute (p: program) (n: int): int =
     match SMap.find_opt p.output_var final_state with
     | Some v -> v
     | None -> raise (Error ("output variable " ^ p.output_var ^ " not found in final state."))
+
+
+let rec find_all_vars_aexp (a: a_exp) : var_set =
+  match a with
+  | Aval _ -> SSet.empty
+  | Var x -> SSet.singleton x
+  | Of_Bool b -> find_all_vars_bexp b
+  | Plus (a1, a2)
+  | Minus (a1, a2)
+  | Times (a1, a2) ->
+      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
+
+and find_all_vars_bexp (b: b_exp) : var_set =
+  match b with
+  | Bval _ -> SSet.empty
+  | And (b1, b2)
+  | Or (b1, b2) ->
+      SSet.union (find_all_vars_bexp b1) (find_all_vars_bexp b2)
+  | Not b1 -> find_all_vars_bexp b1
+  | Minor (a1, a2) ->
+      SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
+
+let rec find_all_vars_command (c: command) : var_set =
+  match c with
+  | Skip -> SSet.empty
+  | Assign (x, a) -> SSet.add x (find_all_vars_aexp a)
+  | Seq (c1, c2) ->
+      SSet.union (find_all_vars_command c1) (find_all_vars_command c2)
+  | If (b, c1, c2) ->
+      SSet.union
+        (find_all_vars_bexp b)
+        (SSet.union (find_all_vars_command c1) (find_all_vars_command c2))
+  | While (b, c1) ->
+      SSet.union (find_all_vars_bexp b) (find_all_vars_command c1)

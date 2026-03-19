@@ -2,7 +2,7 @@ open Mini_imp_AST
 
 module SSet = Mini_Modules.SSet
 
-type var_set = SSet.t
+type var_set = Mini_imp_AST.var_set
 
 module IMap = Mini_Modules.IMap
 
@@ -21,11 +21,8 @@ type 'a generic_cfg =
     all_vars: var_set;
   }
 
-val empty_generic_cfg : 'a generic_cfg
+val empty_cfg : 'a generic_cfg
 
-val generic_add_node : 'a generic_cfg -> int -> 'a -> 'a generic_cfg
-val generic_add_edge : 'a generic_cfg -> int -> out_node -> 'a generic_cfg
-
-val find_all_vars_aexp : a_exp -> var_set
-val find_all_vars_bexp : b_exp -> var_set
-val find_all_vars_command : command -> var_set
+val add_node : 'a generic_cfg -> int -> 'a -> 'a generic_cfg
+val add_edge : 'a generic_cfg -> int -> out_node -> 'a generic_cfg
+val find_predecessors : 'a generic_cfg -> int -> int list

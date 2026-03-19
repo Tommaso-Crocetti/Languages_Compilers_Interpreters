@@ -1,5 +1,4 @@
 open Mini_imp_AST
-open Mini_imp_Parser
 open Mini_CFG
 open Mini_imp_CFG
 open Mini_imp_Printer
@@ -12,7 +11,7 @@ module SSet = Mini_Modules.SSet
 
 module ISet = Mini_Modules.ISet
 
-type var_set = SSet.t
+type var_set = Mini_imp_AST.var_set
 
 type dataflow_node = 
   {
@@ -31,14 +30,6 @@ type node_verification_result =
 let build_dataflow_cfg (cfg: cfg) : dataflow_cfg =
   let nodes = IMap.map (fun (stmts, def_vars) -> ({ stmts; in_vars = cfg.all_vars; out_vars = cfg.all_vars }, def_vars)) cfg.nodes in
   { nodes; edges = cfg.edges; initial = cfg.initial; final = cfg.final; all_vars = cfg.all_vars; input_var = cfg.input_var; output_var = cfg.output_var }
-
-let find_predecessors (df_cfg: dataflow_cfg) (node_id: int) : int list =
-  List.filter_map (fun (src_id, out_nodes) ->
-      match out_nodes with
-      | Single dst_id when dst_id = node_id -> Some src_id
-      | Pair (dst_id1, dst_id2) when dst_id1 = node_id || dst_id2 = node_id -> Some src_id
-      | _ -> None)
-    (IMap.bindings df_cfg.edges)
 
 let defined_local_update (df_cfg: dataflow_cfg) (node_id: int) (predecessors: int list): var_set * var_set =
   let (df_node, def_vars) = IMap.find node_id df_cfg.nodes in

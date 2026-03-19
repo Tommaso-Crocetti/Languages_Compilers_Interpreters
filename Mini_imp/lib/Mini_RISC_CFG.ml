@@ -1,4 +1,3 @@
-open Mini_imp_AST
 open Mini_CFG
 open Mini_imp_CFG
 open Mini_RISC
@@ -9,17 +8,7 @@ module SMap = Mini_RISC.SMap
 
 module ISet = Set.Make(Int)
 
-type risc_cfg = (instruction list * reg_set) generic_cfg
-
-let empty_risc_cfg: risc_cfg = empty_generic_cfg
-
-(* Helper function that adds a node to the RISC CFG *)
-let add_node (g: risc_cfg) (node_id: int) (code: instruction list) (def_regs: reg_set) : risc_cfg =
-  generic_add_node g node_id (code, def_regs)
-
-(* Helper function that adds an edge to the RISC CFG *)
-let add_edge (g: risc_cfg) (src: int) (dst: out_node) : risc_cfg =
-  generic_add_edge g src dst
+type risc_cfg = instruction list generic_cfg
 
 (* Main function, translates a CFG to a RISC CFG by traversing the original one *)
 let translate_cfg (g: cfg): risc_cfg =
@@ -42,9 +31,9 @@ let translate_cfg (g: cfg): risc_cfg =
       (* Add the current node to the visited set and translate the block *)
       let visited = ISet.add node_id visited in
       let (stmts, _) = IMap.find node_id cfg.nodes in
-      let instructions, next_reg_map, def_regs = translate_stmts stmts curr_reg_map in
+      let instructions, next_reg_map = translate_stmts stmts curr_reg_map in
       (* Add the corresponding RISC node and the edges to the RISC CFG *)
-      let risc_cfg = add_node risc_cfg node_id instructions def_regs in
+      let risc_cfg = add_node risc_cfg node_id instructions in
       match IMap.find_opt node_id cfg.edges with
       (* If there is no outgoing edge, the final node has been reached *)
       | None -> (risc_cfg, visited, next_reg_map)
@@ -72,7 +61,7 @@ let translate_cfg (g: cfg): risc_cfg =
     | _ -> raise (Error "multiple final nodes not expected")
   in
   let initial_risc_cfg = 
-    { empty_risc_cfg with initial = g.initial; 
+    { empty_cfg with initial = g.initial; 
     final = [final_node]; 
     input_var = g.input_var; 
     output_var = g.output_var 
@@ -101,7 +90,7 @@ let risc_cfg_to_code
   (string_of_instruction : instruction -> string)
   (cfg : risc_cfg)
   : string =
-  List.fold_left (fun acc (node_id, (instrs, def_regs)) ->
+  List.fold_left (fun acc (node_id, (instrs)) ->
     let label = string_of_label node_id in
     let instructions = append_jump cfg node_id instrs in
     acc ^ label ^ ":\n"

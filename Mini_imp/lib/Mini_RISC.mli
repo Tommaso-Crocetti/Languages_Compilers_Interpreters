@@ -1,5 +1,4 @@
 open Mini_imp_AST
-open Mini_CFG
 open Mini_imp_CFG
 
 exception Error of string
@@ -38,7 +37,7 @@ val available_temp_regs : reg -> reg list -> reg list
 val initial_reg_map : string -> string -> var_to_reg
 
 val translate_aexpr :
-  a_exp -> reg option -> reg list -> reg_set -> var_to_reg -> reg * instruction list * reg_set
+  a_exp -> reg option -> reg list -> var_to_reg -> reg * instruction list
 
 val translate_commutative_aexpr :
   brop ->
@@ -47,20 +46,20 @@ val translate_commutative_aexpr :
   a_exp ->
   reg option ->
   reg list ->
-	reg_set ->
   var_to_reg ->
-  reg * instruction list * reg_set
+  reg * instruction list
 
 val translate_minus_aexpr :
   reg option ->
   reg list ->
   a_exp ->
   a_exp ->
-	reg_set ->
   var_to_reg ->
-  reg * instruction list * reg_set
+  reg * instruction list
 
 val translate_bexpr :
-  b_exp -> reg option -> reg list -> reg_set -> var_to_reg -> reg * instruction list * reg_set
+  b_exp -> reg option -> reg list -> var_to_reg -> reg * instruction list
 
-val translate_stmts : statement list -> var_to_reg -> instruction list * var_to_reg * reg_set
+val translate_stmts : statement list -> var_to_reg -> instruction list * var_to_reg
+
+val find_used_defined_regs : instruction list -> reg_set * reg_set

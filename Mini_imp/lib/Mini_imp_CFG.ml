@@ -18,18 +18,6 @@ let fresh_id =
     incr next;
     !next
 
-let empty_cfg : cfg = empty_generic_cfg
-
-(* Adds a new node to the CFG with the given statements, always ensuring that it is the final node *)
-let add_node (g: cfg) (stmts: statement list) (def_vars: var_set) : cfg =
-  let node_id = fresh_id () in
-  let g = generic_add_node g node_id (stmts, def_vars) in
-  { g with final = [node_id] }
-
-(* Adds an edge to the CFG *)
-let add_edge (g: cfg) (src: int) (dst: out_node) : cfg =
-  generic_add_edge g src dst
-
 (* Helper functions that retrives the next node in the cfg *)
 let next_node_id (g: cfg) : int =
   match List.rev (IMap.bindings g.nodes) with
@@ -79,7 +67,7 @@ let make_cfg (p: program) : cfg =
           | _ -> stmts
         in
         (* Add the guard statement to the pending statements, creating a new node *)
-        let g' = add_node g (List.rev (Guard b::pending_stmts)) def_vars in
+        let g' = add_node g (next_node_id g) (List.rev (Guard b::pending_stmts), def_vars) in
         let new_final_node = match g'.final with
           | [n] -> n
           | _ -> raise (Error "expected a single final node built from pending statements before the if statement.")
@@ -103,7 +91,7 @@ let make_cfg (p: program) : cfg =
         let g1' =
           if then_stmts <> [] then
             (* Create a new node for the then pending statements *)
-            let g1'' = add_node g1 (List.rev then_stmts) def_vars_then in
+            let g1'' = add_node g1 (next_node_id g1) (List.rev then_stmts, def_vars_then) in
             let then_join_node = match g1''.final with
               | [n] -> n
               | _ -> raise (Error "expected a single final node built from pending statements in the then branch.")
@@ -117,7 +105,7 @@ let make_cfg (p: program) : cfg =
               then_previous_final_nodes
           (* Handle the case where there are no statements in the then branch *)
           else if then_previous_final_nodes = [new_final_node] then
-            add_node g1 [Skip] SSet.empty
+            add_node g1 (next_node_id g1) ([Skip], SSet.empty)
           (* If the then branch is not empty and has no pending statements, it is correct *)
           else g1
         in
@@ -138,7 +126,7 @@ let make_cfg (p: program) : cfg =
         let g2' =
           if else_stmts <> [] then
             (* Create a new node for the else pending statements *)
-            let g2'' = add_node g2 (List.rev else_stmts) def_vars_else in
+            let g2'' = add_node g2 (next_node_id g2) (List.rev else_stmts, def_vars_else) in
             let else_final_node = match g2''.final with
               | [n] -> n
               | _ -> raise (Error "expected a single final node built from pending statements in the else branch.")
@@ -154,7 +142,7 @@ let make_cfg (p: program) : cfg =
               else_previous_final_nodes
           (* Handle the case where there are no statements in the else branch *)
           else if else_previous_final_nodes = then_final_nodes then
-            add_node g2 [Skip] SSet.empty
+            add_node g2 (next_node_id g2) ([Skip], SSet.empty)
           (* If the else branch is not empty and has no pending statements, it is correct *)
           else g2
         in
@@ -175,7 +163,7 @@ let make_cfg (p: program) : cfg =
           else List.rev stmts
         in
         (* Create a new node for the pre-guard statements *)
-        let g_pre = add_node g pre_guard_stmts def_vars in
+        let g_pre = add_node g (next_node_id g) (pre_guard_stmts, def_vars) in
         let pre_guard_node = match g_pre.final with
           | [n] -> n
           | _ -> raise (Error "expected a single final node built from pending statements before the while statement.")
@@ -186,7 +174,7 @@ let make_cfg (p: program) : cfg =
             else g_pre
         in
         (* Add the guard statement node *)
-        let g' = add_node g' [Guard b] SSet.empty in
+        let g' = add_node g' (next_node_id g') ([Guard b], SSet.empty) in
         let guard_node = match g'.final with
           | [n] -> n
           | _ -> raise (Error "expected a single final node containing the while guard.")
@@ -200,7 +188,7 @@ let make_cfg (p: program) : cfg =
         let g_while =
           (* Handle the body pending statements *)
           if body_stmts <> [Skip] then
-            let g_body = add_node g_while (List.rev body_stmts) def_vars_body in
+            let g_body = add_node g_while (next_node_id g_while) (List.rev body_stmts, def_vars_body) in
             let body_join_node = match g_body.final with
               | [n] -> n
               | _ -> raise (Error "expected a single final node built from pending statements of the while body.")
@@ -213,7 +201,7 @@ let make_cfg (p: program) : cfg =
               body_final_nodes
           (* Handle the case where there are no statements in the body *)
           else if body_final_nodes = [guard_node] then
-            add_node g_while [Skip] SSet.empty
+            add_node g_while (next_node_id g_while) ([Skip], SSet.empty)
           (* If the body is not empty and has no pending statements, it is correct *)
           else g_while
         in
@@ -237,7 +225,7 @@ let make_cfg (p: program) : cfg =
     (* Final backpatch with the last list of statements of the program *)
     let pending_final_nodes = cfg.final in
     (* Create a node with the final pending statements *)
-    let cfg' = if final_stmts != [] then add_node cfg (List.rev final_stmts) final_def_vars else cfg in
+    let cfg' = if final_stmts != [] then add_node cfg (next_node_id cfg) (List.rev final_stmts, final_def_vars) else cfg in
     let final_node = match cfg'.final with
       | [n] -> n
       | _ -> raise (Error ("expected a single final node built from pending statements at the end of the program."))

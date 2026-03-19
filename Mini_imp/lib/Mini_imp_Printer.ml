@@ -164,7 +164,7 @@ let string_of_risc_instruction (instr: instruction) : string =
 
 let risc_cfg_to_string (cfg: risc_cfg) : string =
   generic_cfg_to_string
-    (fun node_id (instrs, def_regs)->
+    (fun node_id (instrs)->
     let instrs_str = String.concat "; " (List.map string_of_risc_instruction instrs) in
     string_of_int node_id ^ ": " ^ instrs_str)
     cfg
