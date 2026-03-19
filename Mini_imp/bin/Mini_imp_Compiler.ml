@@ -8,7 +8,7 @@ open Mini_imp_Lib.Mini_imp_DefVars
 open Mini_imp_Lib.Mini_imp_Printer
 
 let usage =
-	"Usage: Mini_imp_compiler [--check-undefined] <input.mimp> <output.risc>"
+	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] <input.mimp> <output.risc>"
 
 let parse_program (input_file : string) =
 	let ic = open_in input_file in
@@ -18,12 +18,16 @@ let parse_program (input_file : string) =
   program
 
 let compile_file
+  ~(show_cfg : bool)
 	~(check_undefined : bool)
 	~(input_file : string)
 	~(output_file : string)
 	: unit =
 	let program = parse_program input_file in
-	let cfg = make_cfg program in
+	let cfg = build_cfg program in
+  if show_cfg then (
+    Printf.printf "Generated CFG:\n%s\n" (cfg_to_string cfg);
+  );
 	if check_undefined then (
 		let _ = defined_analysis cfg in
 		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
@@ -35,11 +39,15 @@ let compile_file
 	close_out oc
 
 let () =
+  let show_cfg = ref false in
 	let check_undefined = ref false in
 	let positional = ref [] in
 
 	let specs =
-		[ ("--check-undefined", Arg.Set check_undefined, "Enable undefined variable check") ]
+		[
+      ("--show-cfg", Arg.Set show_cfg, "Print the generated CFG");
+      ("--check-undefined", Arg.Set check_undefined, "Enable undefined variable check");
+    ]
 	in
 
 	Arg.parse specs (fun arg -> positional := arg :: !positional) usage;
@@ -48,6 +56,7 @@ let () =
 	| [input_file; output_file] ->
     (try
 			compile_file
+        ~show_cfg:!show_cfg
         ~check_undefined:!check_undefined
         ~input_file
         ~output_file;

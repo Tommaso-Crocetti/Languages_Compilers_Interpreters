@@ -12,5 +12,6 @@ type cfg = (statement list * var_set) generic_cfg
 
 val fresh_id : unit -> int
 val next_node_id : cfg -> int
+val add_block : cfg -> statement list -> var_set -> cfg * int
 val connect_pending_node : cfg -> int -> int -> cfg
-val make_cfg : program -> cfg
+val build_cfg : program -> cfg

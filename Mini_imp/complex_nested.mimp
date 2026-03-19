@@ -1,5 +1,4 @@
 def main with input x output y as
-    while x < 0 do (
     if x < 0 then
         y := -1
     else
@@ -53,4 +52,3 @@ def main with input x output y as
             ) else
                 skip
         )
-    )

@@ -4,8 +4,6 @@ open Mini_RISC
 
 exception Error of string
 
-module ISet : Set.S with type elt = int
-
 type risc_cfg = instruction list generic_cfg
 
 val translate_cfg : cfg -> risc_cfg
