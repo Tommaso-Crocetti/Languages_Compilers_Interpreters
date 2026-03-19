@@ -1,6 +1,6 @@
 open Mini_imp_Lib
 open Mini_imp_AST
-open Mini_CFG_utils
+open Mini_CFG
 open Mini_imp_CFG
 
 let aval n = Mini_imp_AST.Aval n
@@ -27,58 +27,58 @@ let programs_dir = "tests"
 let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 
 let string_of_reg = function
-  | Mini_RISC_CFG.Rin -> "Rin"
-  | Mini_RISC_CFG.Rout -> "Rout"
-  | Mini_RISC_CFG.Ra -> "Ra"
-  | Mini_RISC_CFG.Rb -> "Rb"
-  | Mini_RISC_CFG.RVar n -> "R" ^ string_of_int n
+  | Mini_RISC.Rin -> "Rin"
+  | Mini_RISC.Rout -> "Rout"
+  | Mini_RISC.Ra -> "Ra"
+  | Mini_RISC.Rb -> "Rb"
+  | Mini_RISC.RVar n -> "R" ^ string_of_int n
 
 let string_of_brop = function
-  | Mini_RISC_CFG.Add -> "Add"
-  | Mini_RISC_CFG.Sub -> "Sub"
-  | Mini_RISC_CFG.Mult -> "Mult"
-  | Mini_RISC_CFG.And -> "And"
-  | Mini_RISC_CFG.Less -> "Less"
-  | Mini_RISC_CFG.Or -> "Or"
+  | Mini_RISC.Add -> "Add"
+  | Mini_RISC.Sub -> "Sub"
+  | Mini_RISC.Mult -> "Mult"
+  | Mini_RISC.And -> "And"
+  | Mini_RISC.Less -> "Less"
+  | Mini_RISC.Or -> "Or"
 
 let string_of_biop = function
-  | Mini_RISC_CFG.AddI -> "AddI"
-  | Mini_RISC_CFG.SubI -> "SubI"
-  | Mini_RISC_CFG.MultI -> "MultI"
-  | Mini_RISC_CFG.AndI -> "AndI"
-  | Mini_RISC_CFG.OrI -> "OrI"
+  | Mini_RISC.AddI -> "AddI"
+  | Mini_RISC.SubI -> "SubI"
+  | Mini_RISC.MultI -> "MultI"
+  | Mini_RISC.AndI -> "AndI"
+  | Mini_RISC.OrI -> "OrI"
 
 let string_of_urop = function
-  | Mini_RISC_CFG.Not -> "Not"
-  | Mini_RISC_CFG.Copy -> "Copy"
+  | Mini_RISC.Not -> "Not"
+  | Mini_RISC.Copy -> "Copy"
 
 let string_of_instruction = function
-  | Mini_RISC_CFG.Nop -> "Nop"
-  | Mini_RISC_CFG.Brop (op, left, right, dst) ->
+  | Mini_RISC.Nop -> "Nop"
+  | Mini_RISC.Brop (op, left, right, dst) ->
       Printf.sprintf "Brop(%s,%s,%s,%s)"
         (string_of_brop op)
         (string_of_reg left)
         (string_of_reg right)
         (string_of_reg dst)
-  | Mini_RISC_CFG.Biop (op, src, imm, dst) ->
+  | Mini_RISC.Biop (op, src, imm, dst) ->
       Printf.sprintf "Biop(%s,%s,%d,%s)"
         (string_of_biop op)
         (string_of_reg src)
         imm
         (string_of_reg dst)
-  | Mini_RISC_CFG.Urop (op, src, dst) ->
+  | Mini_RISC.Urop (op, src, dst) ->
       Printf.sprintf "Urop(%s,%s,%s)"
         (string_of_urop op)
         (string_of_reg src)
         (string_of_reg dst)
-  | Mini_RISC_CFG.Load (src, dst) ->
+  | Mini_RISC.Load (src, dst) ->
       Printf.sprintf "Load(%s,%s)" (string_of_reg src) (string_of_reg dst)
-  | Mini_RISC_CFG.LoadI (n, dst) ->
+  | Mini_RISC.LoadI (n, dst) ->
       Printf.sprintf "LoadI(%d,%s)" n (string_of_reg dst)
-  | Mini_RISC_CFG.Store (src, dst) ->
+  | Mini_RISC.Store (src, dst) ->
       Printf.sprintf "Store(%s,%s)" (string_of_reg src) (string_of_reg dst)
-  | Mini_RISC_CFG.Jump label -> Printf.sprintf "Jump(%s)" label
-  | Mini_RISC_CFG.CJump (cond, l1, l2) ->
+  | Mini_RISC.Jump label -> Printf.sprintf "Jump(%s)" label
+  | Mini_RISC.CJump (cond, l1, l2) ->
       Printf.sprintf "CJump(%s,%s,%s)" (string_of_reg cond) l1 l2
 
 let string_of_instructions code =
@@ -90,41 +90,41 @@ let normalize_instructions code =
   let next = ref 0 in
   let seen = Hashtbl.create 8 in
   let normalize_reg = function
-    | Mini_RISC_CFG.Rin -> Mini_RISC_CFG.Rin
-    | Mini_RISC_CFG.Rout -> Mini_RISC_CFG.Rout
-    | Mini_RISC_CFG.Ra -> Mini_RISC_CFG.Ra
-    | Mini_RISC_CFG.Rb -> Mini_RISC_CFG.Rb
-    | Mini_RISC_CFG.RVar n ->
+    | Mini_RISC.Rin -> Mini_RISC.Rin
+    | Mini_RISC.Rout -> Mini_RISC.Rout
+    | Mini_RISC.Ra -> Mini_RISC.Ra
+    | Mini_RISC.Rb -> Mini_RISC.Rb
+    | Mini_RISC.RVar n ->
         (match Hashtbl.find_opt seen n with
-        | Some mapped -> Mini_RISC_CFG.RVar mapped
+        | Some mapped -> Mini_RISC.RVar mapped
         | None ->
             incr next;
             Hashtbl.add seen n !next;
-            Mini_RISC_CFG.RVar !next)
+            Mini_RISC.RVar !next)
   in
   let normalize_instruction = function
-    | Mini_RISC_CFG.Nop -> Mini_RISC_CFG.Nop
-    | Mini_RISC_CFG.Brop (op, left, right, dst) ->
-      Mini_RISC_CFG.Brop (op, normalize_reg left, normalize_reg right, normalize_reg dst)
-    | Mini_RISC_CFG.Biop (op, src, imm, dst) ->
-        Mini_RISC_CFG.Biop (op, normalize_reg src, imm, normalize_reg dst)
-    | Mini_RISC_CFG.Urop (op, src, dst) ->
-        Mini_RISC_CFG.Urop (op, normalize_reg src, normalize_reg dst)
-    | Mini_RISC_CFG.Load (src, dst) ->
-        Mini_RISC_CFG.Load (normalize_reg src, normalize_reg dst)
-    | Mini_RISC_CFG.LoadI (n, dst) ->
-        Mini_RISC_CFG.LoadI (n, normalize_reg dst)
-    | Mini_RISC_CFG.Store (src, dst) ->
-        Mini_RISC_CFG.Store (normalize_reg src, normalize_reg dst)
-    | Mini_RISC_CFG.Jump label -> Mini_RISC_CFG.Jump label
-    | Mini_RISC_CFG.CJump (cond, l1, l2) ->
-        Mini_RISC_CFG.CJump (normalize_reg cond, l1, l2)
+    | Mini_RISC.Nop -> Mini_RISC.Nop
+    | Mini_RISC.Brop (op, left, right, dst) ->
+      Mini_RISC.Brop (op, normalize_reg left, normalize_reg right, normalize_reg dst)
+    | Mini_RISC.Biop (op, src, imm, dst) ->
+        Mini_RISC.Biop (op, normalize_reg src, imm, normalize_reg dst)
+    | Mini_RISC.Urop (op, src, dst) ->
+        Mini_RISC.Urop (op, normalize_reg src, normalize_reg dst)
+    | Mini_RISC.Load (src, dst) ->
+        Mini_RISC.Load (normalize_reg src, normalize_reg dst)
+    | Mini_RISC.LoadI (n, dst) ->
+        Mini_RISC.LoadI (n, normalize_reg dst)
+    | Mini_RISC.Store (src, dst) ->
+        Mini_RISC.Store (normalize_reg src, normalize_reg dst)
+    | Mini_RISC.Jump label -> Mini_RISC.Jump label
+    | Mini_RISC.CJump (cond, l1, l2) ->
+        Mini_RISC.CJump (normalize_reg cond, l1, l2)
   in
   List.map normalize_instruction code
 
 let assert_translation name expr expected =
-  let reg_map = Mini_RISC_CFG.initial_reg_map "input" "output" in
-  let (_, actual) = Mini_RISC_CFG.translate_aexpr expr None [Mini_RISC_CFG.Ra; Mini_RISC_CFG.Rb] reg_map in
+  let reg_map = Mini_RISC.initial_reg_map "input" "output" in
+  let (_, actual) = Mini_RISC.translate_aexpr expr None [Mini_RISC.Ra; Mini_RISC.Rb] reg_map in
   let actual = normalize_instructions actual in
   if actual <> expected then
     failwith
@@ -137,10 +137,10 @@ let assert_translation name expr expected =
 let find_unique_loadi_reg (cfg : Mini_RISC_CFG.risc_cfg) value =
   let matches =
     cfg.nodes
-    |> Mini_CFG_utils.NMap.bindings
+    |> Mini_CFG.NMap.bindings
       |> List.filter_map (fun (_node_id, node_instructions) ->
         match node_instructions with
-         | [Mini_RISC_CFG.LoadI (n, reg)] when n = value -> Some reg
+         | [Mini_RISC.LoadI (n, reg)] when n = value -> Some reg
          | _ -> None)
   in
   match matches with
@@ -169,7 +169,7 @@ let assert_same_reg name left right =
 let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   let matches =
     cfg.nodes
-    |> Mini_CFG_utils.NMap.bindings
+    |> Mini_CFG.NMap.bindings
     |> List.filter_map (fun (node_id, (statements, _def_vars)) ->
          if predicate statements then Some node_id else None)
   in
@@ -179,7 +179,7 @@ let find_unique_cfg_node (cfg : Mini_imp_CFG.cfg) predicate description =
   | _ -> failwith (Printf.sprintf "multiple CFG nodes found for %s" description)
 
 let assert_edge_equals (cfg : Mini_imp_CFG.cfg) src expected description =
-  match Mini_CFG_utils.NMap.find_opt src cfg.edges with
+  match Mini_CFG.NMap.find_opt src cfg.edges with
   | Some actual when actual = expected -> ()
   | Some actual ->
       failwith
@@ -191,13 +191,13 @@ let assert_edge_equals (cfg : Mini_imp_CFG.cfg) src expected description =
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
 let edge_of (cfg : Mini_imp_CFG.cfg) src description =
-  match Mini_CFG_utils.NMap.find_opt src cfg.edges with
+  match Mini_CFG.NMap.find_opt src cfg.edges with
   | Some edge -> edge
   | None -> failwith (Printf.sprintf "missing CFG edge for %s" description)
 
 let run_nested_if_cfg_test () =
   (* Program: if x < 0 then (if true then z:=1 else z:=0) else (if true then x:=1 else x:=2); y := z *)
-  let open Mini_imp_Interpreter in
+  let open Mini_imp_AST in
   let prog =
     make_program "x" "y"
       (seq
@@ -219,8 +219,8 @@ let run_nested_if_cfg_test () =
   in
   let inner_then_guard_node, outer_else_guard_node =
     match edge_of cfg outer_guard_node "outer guard" with
-    | Mini_CFG_utils.Pair (left, right) -> (left, right)
-    | Mini_CFG_utils.Single _ -> failwith "outer guard should have a Pair edge"
+    | Mini_CFG.Pair (left, right) -> (left, right)
+    | Mini_CFG.Single _ -> failwith "outer guard should have a Pair edge"
   in
   let assign_z_1 =
     find_unique_cfg_node
@@ -252,15 +252,15 @@ let run_nested_if_cfg_test () =
       (function [Mini_imp_CFG.Assign ("y", Mini_imp_AST.Var "z")] -> true | _ -> false)
       "y := z"
   in
-  assert_edge_equals cfg inner_then_guard_node (Mini_CFG_utils.Pair (assign_z_1, assign_z_0)) "inner then guard";
-  assert_edge_equals cfg outer_else_guard_node (Mini_CFG_utils.Pair (assign_x_1, assign_x_2)) "outer else guard";
-  assert_edge_equals cfg assign_z_1 (Mini_CFG_utils.Single final_node) "z:=1 exit";
-  assert_edge_equals cfg assign_z_0 (Mini_CFG_utils.Single final_node) "z:=0 exit";
-  assert_edge_equals cfg assign_x_1 (Mini_CFG_utils.Single final_node) "x:=1 exit";
-  assert_edge_equals cfg assign_x_2 (Mini_CFG_utils.Single final_node) "x:=2 exit"
+  assert_edge_equals cfg inner_then_guard_node (Mini_CFG.Pair (assign_z_1, assign_z_0)) "inner then guard";
+  assert_edge_equals cfg outer_else_guard_node (Mini_CFG.Pair (assign_x_1, assign_x_2)) "outer else guard";
+  assert_edge_equals cfg assign_z_1 (Mini_CFG.Single final_node) "z:=1 exit";
+  assert_edge_equals cfg assign_z_0 (Mini_CFG.Single final_node) "z:=0 exit";
+  assert_edge_equals cfg assign_x_1 (Mini_CFG.Single final_node) "x:=1 exit";
+  assert_edge_equals cfg assign_x_2 (Mini_CFG.Single final_node) "x:=2 exit"
 
 let run_cfg_scope_tests () =
-  let open Mini_imp_Interpreter in
+  let open Mini_imp_AST in
   let if_prog =
     make_program
       "input"
@@ -273,59 +273,59 @@ let run_cfg_scope_tests () =
          (assign "tmp" (aval 99)))
   in
   let if_cfg = Mini_imp_CFG.make_cfg if_prog in
-  let (if_risc, _) = Mini_RISC_CFG.translate_cfg if_cfg "input" "output" in
+  let if_risc = Mini_RISC_CFG.translate_cfg if_cfg in
   let then_reg = find_unique_loadi_reg if_risc 41 in
   let join_reg = find_unique_loadi_reg if_risc 99 in
   assert_same_reg "if variable assignment is preserved at join" then_reg join_reg
 
 let run_translation_tests () =
-  let open Mini_imp_Interpreter in
+  let open Mini_imp_AST in
   let tests = [
     ( "plus const const",
       plus (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (5, Mini_RISC_CFG.Ra);
+        Mini_RISC.LoadI (5, Mini_RISC.Ra);
       ] );
     ( "plus var const",
       plus (var "input") (aval 4),
-      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.Ra)] );
+      [Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 4, Mini_RISC.Ra)] );
     ( "plus nested const",
       plus (aval 2) (plus (var "input") (aval 1)),
       [
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 1, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Ra, 2, Mini_RISC_CFG.Ra);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 1, Mini_RISC.Ra);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Ra, 2, Mini_RISC.Ra);
       ] );
     ( "minus var const",
       minus (var "input") (aval 4),
-      [Mini_RISC_CFG.Biop (Mini_RISC_CFG.SubI, Mini_RISC_CFG.Rin, 4, Mini_RISC_CFG.Ra)] );
+      [Mini_RISC.Biop (Mini_RISC.SubI, Mini_RISC.Rin, 4, Mini_RISC.Ra)] );
     ( "minus const var",
       minus (aval 4) (var "input"),
       [
-        Mini_RISC_CFG.LoadI (4, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra);
+        Mini_RISC.LoadI (4, Mini_RISC.Ra);
+        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.Ra, Mini_RISC.Rin, Mini_RISC.Ra);
       ] );
     ( "minus expr var",
       minus (plus (var "input") (aval 2)) (var "input"),
       [
-        Mini_RISC_CFG.Biop (Mini_RISC_CFG.AddI, Mini_RISC_CFG.Rin, 2, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Sub, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra);
+        Mini_RISC.Biop (Mini_RISC.AddI, Mini_RISC.Rin, 2, Mini_RISC.Ra);
+        Mini_RISC.Brop (Mini_RISC.Sub, Mini_RISC.Ra, Mini_RISC.Rin, Mini_RISC.Ra);
       ] );
     ( "times const const",
       times (aval 2) (aval 3),
       [
-        Mini_RISC_CFG.LoadI (6, Mini_RISC_CFG.Ra);
+        Mini_RISC.LoadI (6, Mini_RISC.Ra);
       ] );
     ( "times zero",
       times (aval 0) (var "input"),
-      [Mini_RISC_CFG.LoadI (0, Mini_RISC_CFG.Ra)] );
+      [Mini_RISC.LoadI (0, Mini_RISC.Ra)] );
     ( "times one",
       times (var "input") (aval 1),
-      [Mini_RISC_CFG.Urop (Mini_RISC_CFG.Copy, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra)] );
+      [Mini_RISC.Urop (Mini_RISC.Copy, Mini_RISC.Rin, Mini_RISC.Ra)] );
     ( "times var expr",
       times (var "input") (plus (aval 1) (aval 2)),
       [
-        Mini_RISC_CFG.LoadI (3, Mini_RISC_CFG.Ra);
-        Mini_RISC_CFG.Brop (Mini_RISC_CFG.Mult, Mini_RISC_CFG.Rin, Mini_RISC_CFG.Ra, Mini_RISC_CFG.Ra);
+        Mini_RISC.LoadI (3, Mini_RISC.Ra);
+        Mini_RISC.Brop (Mini_RISC.Mult, Mini_RISC.Rin, Mini_RISC.Ra, Mini_RISC.Ra);
       ] );
   ] in
   List.iter (fun (name, expr, expected) -> assert_translation name expr expected) tests
@@ -402,7 +402,7 @@ let run_program_file dir fname =
             List.iter2
               (fun n exp ->
                 try
-                  let result = Mini_imp_Interpreter.execute prog n in
+                  let result = Mini_imp_AST.execute prog n in
                   Printf.printf "  f(%3d) = %d\n%!" n result;
                   if result <> exp then (
                     all_ok := false;

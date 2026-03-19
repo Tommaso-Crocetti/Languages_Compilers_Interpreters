@@ -3,5 +3,5 @@ def main with input x output y as
         z := 1
     else
         w := 2;
-    y := x;
+    y := z;
     f := y

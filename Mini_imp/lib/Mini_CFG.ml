@@ -21,6 +21,31 @@ type 'a generic_cfg =
   all_vars: var_set;
 }
 
+let empty_generic_cfg: 'a generic_cfg =
+  {
+    nodes = NMap.empty;
+    edges = NMap.empty;
+    initial = 0;
+    final = [0];
+    input_var = "";
+    output_var = "";
+    all_vars = SSet.empty;
+  }
+
+let generic_add_node
+  (cfg : 'a generic_cfg)
+  (node_id : int)
+  (node : 'a)
+  : 'a generic_cfg =
+  { cfg with nodes = NMap.add node_id node cfg.nodes }
+
+let generic_add_edge
+  (cfg : 'a generic_cfg)
+  (src : int)
+  (dst : out_node)
+  : 'a generic_cfg =
+  { cfg with edges = NMap.add src dst cfg.edges }
+
 let rec find_all_vars_aexp (a: a_exp) : var_set =
   match a with
   | Aval _ -> SSet.empty

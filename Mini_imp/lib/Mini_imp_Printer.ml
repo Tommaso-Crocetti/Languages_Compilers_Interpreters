@@ -1,7 +1,8 @@
 open Mini_imp_Parser
 open Mini_imp_AST
-open Mini_CFG_utils
+open Mini_CFG
 open Mini_imp_CFG
+open Mini_RISC
 open Mini_RISC_CFG
 
 let string_of_token (tok : token) : string =
@@ -58,6 +59,7 @@ let rec command_to_string (c: command): string =
   | Seq (c1, c2) -> "(" ^ (command_to_string c1) ^ ") ; (" ^ (command_to_string c2) ^ ")"
   | If (b, c1, c2) -> "if " ^ (bexp_to_string b) ^ " then (" ^ (command_to_string c1) ^ ") else (" ^ (command_to_string c2) ^ ")"
   | While (b, c) -> "while " ^ (bexp_to_string b) ^ " do (" ^ (command_to_string c) ^ ")"
+
 let program_to_string (p: program): string =
     "def main with input " ^ p.input_var ^ " output " ^ p.output_var ^ " as\n" ^ (command_to_string p.body)
 
@@ -72,25 +74,29 @@ let string_of_cfg_out_node (out_node: out_node) : string =
   | Single n -> string_of_int n
   | Pair (id1, id2) -> "(" ^ string_of_int id1 ^ ", " ^ string_of_int id2 ^ ")"
 
-let cfg_to_string (cfg: cfg) : string =
-  let node_to_string (node_id, (stmts, _def_vars)) =
-    let stmts_str = List.map string_of_cfg_statement stmts |> String.concat "; " in
-    string_of_int node_id ^ ": " ^ stmts_str
-  in
-  let edge_to_string (src, dst) =
-    string_of_int src ^ " -> " ^ string_of_cfg_out_node dst
-  in
+let generic_cfg_to_string
+  (node_to_string : int -> 'a -> string)
+  (cfg : 'a generic_cfg)
+  : string =
   let nodes_str =
-    NMap.bindings cfg.nodes
-    |> List.map node_to_string
-    |> String.concat "\n"
+    String.concat "\n"
+      (List.map (fun (node_id, node) -> node_to_string node_id node) (NMap.bindings cfg.nodes))
   in
   let edges_str =
-    NMap.bindings cfg.edges
-    |> List.map edge_to_string
-    |> String.concat "\n"
+    String.concat "\n"
+      (List.map
+         (fun (node_id, out_node) ->
+           string_of_int node_id ^ " -> " ^ string_of_cfg_out_node out_node)
+         (NMap.bindings cfg.edges))
   in
   "Nodes:\n" ^ nodes_str ^ "\nEdges:\n" ^ edges_str
+
+let cfg_to_string (cfg: cfg) : string =
+  generic_cfg_to_string
+    (fun node_id (stmts, _def_vars) ->
+    let stmts_str = String.concat "; " (List.map string_of_cfg_statement stmts) in
+    string_of_int node_id ^ ": " ^ stmts_str)
+    cfg
 
 let string_of_risc_reg (reg: reg) : string =
   match reg with
@@ -153,50 +159,22 @@ let string_of_risc_instruction (instr: instruction) : string =
   | CJump (r, l1, l2) ->
     Printf.sprintf "CJump %s %s %s" (string_of_risc_reg r) l1 l2
 
-let reg_map_to_string (reg_map: var_to_reg) : string =
-  SMap.bindings reg_map
-  |> List.map (fun (var, reg) -> Printf.sprintf "%s -> %s" var (string_of_risc_reg reg))
-  |> String.concat ", "
-
 let risc_cfg_to_string (cfg: risc_cfg) : string =
-  let node_to_string (node_id, instructions) =
-    let instrs_str =
-      List.map string_of_risc_instruction instructions
-      |> String.concat "\n  "
-    in
-    Printf.sprintf "Node %d:\n  %s" node_id instrs_str
-  in
-  let edge_to_string (src, dst) =
-    let dst_str =
-      match dst with
-      | Single n -> Printf.sprintf "Single %d" n
-      | Pair (n1, n2) -> Printf.sprintf "Pair (%d, %d)" n1 n2
-    in
-    Printf.sprintf "Edge from %d to %s" src dst_str
-  in
-  let nodes_str =
-    NMap.bindings cfg.nodes
-    |> List.map node_to_string
-    |> String.concat "\n\n"
-  in
-  let edges_str =
-    NMap.bindings cfg.edges
-    |> List.map edge_to_string
-    |> String.concat "\n"
-  in
-  let final_str = cfg.final |> List.map string_of_int |> String.concat ", " in
-  Printf.sprintf "Initial: %d\nFinal: [%s]\n\nNodes:\n%s\n\nEdges:\n%s"
-    cfg.initial
-    final_str
-    nodes_str
-    edges_str
+  generic_cfg_to_string
+    (fun node_id (instrs)->
+    let instrs_str = String.concat "; " (List.map string_of_risc_instruction instrs) in
+    string_of_int node_id ^ ": " ^ instrs_str)
+    cfg
+
+let reg_map_to_string (reg_map: var_to_reg) : string =
+  String.concat ", " (List.map (fun (var, reg) -> Printf.sprintf "%s -> %s" var (string_of_risc_reg reg)) (SMap.bindings reg_map))
 
 let risc_cfg_and_reg_map_to_string
   (risc_cfg : risc_cfg)
   (final_reg_map : var_to_reg)
   : string =
   Printf.sprintf
-    "RISC CFG:\n%s\n\nFinal Register Map:\n%s"
+    "%s\nFinal Register Map:\n%s"
     (risc_cfg_to_string risc_cfg)
     (reg_map_to_string final_reg_map)
 

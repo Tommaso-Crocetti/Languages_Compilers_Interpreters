@@ -24,3 +24,13 @@ type program = {
   output_var: string;
   body: command;
 }
+
+type state
+
+val make_program : string -> string -> command -> program
+
+val eval_aexp : a_exp -> state -> int
+val eval_bexp : b_exp -> state -> bool
+val eval_c : command -> state -> state
+
+val execute : program -> int -> int

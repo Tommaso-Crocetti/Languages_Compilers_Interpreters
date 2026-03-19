@@ -1,11 +1,11 @@
 open Mini_imp_AST
 open Mini_imp_Parser
-open Mini_CFG_utils
+open Mini_CFG
 open Mini_imp_CFG
 
-module NMap = Mini_CFG_utils.NMap
+module NMap = Mini_CFG.NMap
 
-module SSet = Mini_CFG_utils.SSet
+module SSet = Mini_CFG.SSet
 
 module ISet = Set.Make(Int)
 

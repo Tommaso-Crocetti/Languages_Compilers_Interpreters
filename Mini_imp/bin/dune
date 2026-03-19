@@ -1,4 +1,9 @@
 (executable
- (public_name Mini_imp)
- (name main)
+ (public_name Mini_imp_interpreter)
+ (name Mini_imp_Interpreter)
+ (libraries Mini_imp_Lib))
+
+(executable
+ (public_name Mini_imp_compiler)
+ (name Mini_imp_Compiler)
  (libraries Mini_imp_Lib))

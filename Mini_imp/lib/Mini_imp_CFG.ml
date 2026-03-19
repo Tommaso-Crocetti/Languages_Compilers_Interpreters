@@ -1,6 +1,6 @@
 open Mini_imp_Parser
 open Mini_imp_AST
-open Mini_CFG_utils
+open Mini_CFG
 
 exception Error of string
 
@@ -18,26 +18,17 @@ let fresh_id =
     incr next;
     !next
 
-let empty_cfg : cfg =
-  {
-    nodes = NMap.empty;
-    edges = NMap.empty;
-    initial = 0;
-    final = [0];
-    input_var = "";
-    output_var = "";
-    all_vars = SSet.empty;
-  }
+let empty_cfg : cfg = empty_generic_cfg
 
 (* Adds a new node to the CFG with the given statements, always ensuring that it is the final node *)
 let add_node (g: cfg) (stmts: statement list) (def_vars: var_set) : cfg =
-  let id = fresh_id () in
-  let cfg = { g with nodes = NMap.add id (stmts, def_vars) g.nodes; final = [id] } in
-  cfg
+  let node_id = fresh_id () in
+  let g = generic_add_node g node_id (stmts, def_vars) in
+  { g with final = [node_id] }
 
 (* Adds an edge to the CFG *)
 let add_edge (g: cfg) (src: int) (dst: out_node) : cfg =
-  { g with edges = NMap.add src dst g.edges }
+  generic_add_edge g src dst
 
 (* Helper functions that retrives the next node in the cfg *)
 let next_node_id (g: cfg) : int =
