@@ -10,6 +10,8 @@ module SMap = Mini_Modules.SMap
 
 type var_to_reg = reg SMap.t
 
+type reg_set
+
 type brop = Add | Sub | Mult | And | Or | Less
 type biop = AddI | SubI | MultI | AndI | OrI
 type urop = Not | Copy
@@ -34,7 +36,7 @@ val available_temp_regs : reg -> reg list -> reg list
 val initial_reg_map : string -> string -> var_to_reg
 
 val translate_aexpr :
-  a_exp -> reg option -> reg list -> var_to_reg -> reg * instruction list
+  a_exp -> reg option -> reg list -> reg_set -> var_to_reg -> reg * instruction list * reg_set
 
 val translate_commutative_aexpr :
   brop ->
@@ -43,18 +45,20 @@ val translate_commutative_aexpr :
   a_exp ->
   reg option ->
   reg list ->
+	reg_set ->
   var_to_reg ->
-  reg * instruction list
+  reg * instruction list * reg_set
 
 val translate_minus_aexpr :
   reg option ->
   reg list ->
   a_exp ->
   a_exp ->
+	reg_set ->
   var_to_reg ->
-  reg * instruction list
+  reg * instruction list * reg_set
 
 val translate_bexpr :
-  b_exp -> reg option -> reg list -> var_to_reg -> reg * instruction list
+  b_exp -> reg option -> reg list -> reg_set -> var_to_reg -> reg * instruction list * reg_set
 
-val translate_stmts : statement list -> var_to_reg -> instruction list * var_to_reg
+val translate_stmts : statement list -> var_to_reg -> instruction list * var_to_reg * reg_set

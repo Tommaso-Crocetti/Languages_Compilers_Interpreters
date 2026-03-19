@@ -4,7 +4,7 @@ open Mini_imp_Lib.Mini_CFG
 open Mini_imp_Lib.Mini_imp_CFG
 open Mini_imp_Lib.Mini_RISC
 open Mini_imp_Lib.Mini_RISC_CFG
-open Mini_imp_Lib.Mini_imp_Dataflow
+open Mini_imp_Lib.Mini_imp_DefVars
 open Mini_imp_Lib.Mini_imp_Printer
 
 let usage =
@@ -24,7 +24,10 @@ let compile_file
 	: unit =
 	let program = parse_program input_file in
 	let cfg = make_cfg program in
-	if check_undefined then ignore (defined_analysis cfg);
+	if check_undefined then (
+		let _ = defined_analysis cfg in
+		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
+	);
 	let risc_cfg = translate_cfg cfg in
 	let risc_code = risc_cfg_to_code string_of_risc_instruction risc_cfg in
 	let oc = open_out output_file in
@@ -65,8 +68,8 @@ let () =
             prerr_endline ("RISC error: " ^ msg);
 			  | Mini_imp_Lib.Mini_RISC_CFG.Error msg ->
 					 prerr_endline ("RISC CFG error: " ^ msg);
-        | Mini_imp_Lib.Mini_imp_Dataflow.Error msg ->
-            prerr_endline ("Dataflow analysis error: " ^ msg);
+        | Mini_imp_Lib.Mini_imp_DefVars.Error msg ->
+            prerr_endline ("Defined variable analysis error: " ^ msg);
 					 exit 1)
 	| _ ->
 			prerr_endline usage;

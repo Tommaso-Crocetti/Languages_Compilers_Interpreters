@@ -3,11 +3,11 @@ main:
 	less in ra => ra
 	CJump ra l1 l2
 l1:
-	LoadI 1 => r2
+	LoadI 1 => r1
 	Jump l3
 l2:
 	LoadI 2 => r1
 	Jump l3
 l3:
-	copy r2 => out
+	copy r1 => out
 	copy out => r0

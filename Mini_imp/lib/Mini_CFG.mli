@@ -4,7 +4,7 @@ module SSet = Mini_Modules.SSet
 
 type var_set = SSet.t
 
-module NMap = Mini_Modules.NMap
+module IMap = Mini_Modules.IMap
 
 type out_node =
   | Single of int
@@ -12,8 +12,8 @@ type out_node =
 
 type 'a generic_cfg =
   {
-    nodes: 'a NMap.t;
-    edges: out_node NMap.t;
+    nodes: 'a IMap.t;
+    edges: out_node IMap.t;
     initial: int;
     final: int list;
     input_var: string;

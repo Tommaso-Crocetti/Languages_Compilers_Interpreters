@@ -83,14 +83,14 @@ let generic_cfg_to_string
   : string =
   let nodes_str =
     String.concat "\n"
-      (List.map (fun (node_id, node) -> node_to_string node_id node) (NMap.bindings cfg.nodes))
+      (List.map (fun (node_id, node) -> node_to_string node_id node) (IMap.bindings cfg.nodes))
   in
   let edges_str =
     String.concat "\n"
       (List.map
          (fun (node_id, out_node) ->
            string_of_int node_id ^ " -> " ^ string_of_cfg_out_node out_node)
-         (NMap.bindings cfg.edges))
+         (IMap.bindings cfg.edges))
   in
   "Nodes:\n" ^ nodes_str ^ "\nEdges:\n" ^ edges_str
 
@@ -164,7 +164,7 @@ let string_of_risc_instruction (instr: instruction) : string =
 
 let risc_cfg_to_string (cfg: risc_cfg) : string =
   generic_cfg_to_string
-    (fun node_id (instrs)->
+    (fun node_id (instrs, def_regs)->
     let instrs_str = String.concat "; " (List.map string_of_risc_instruction instrs) in
     string_of_int node_id ^ ": " ^ instrs_str)
     cfg
@@ -184,4 +184,3 @@ let risc_cfg_and_reg_map_to_string
     "%s\nFinal Register Map:\n%s"
     (risc_cfg_to_string risc_cfg)
     (reg_map_to_string final_reg_map)
-

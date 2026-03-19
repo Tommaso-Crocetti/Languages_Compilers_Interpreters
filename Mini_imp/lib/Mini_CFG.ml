@@ -4,7 +4,7 @@ module SSet = Mini_Modules.SSet
 
 type var_set = SSet.t
 
-module NMap = Mini_Modules.NMap
+module IMap = Mini_Modules.IMap
 
 type out_node =
   | Single of int
@@ -12,8 +12,8 @@ type out_node =
 
 type 'a generic_cfg = 
 {
-  nodes: 'a NMap.t;
-  edges: out_node NMap.t;
+  nodes: 'a IMap.t;
+  edges: out_node IMap.t;
   initial: int;
   final: int list;
   input_var: string;
@@ -23,8 +23,8 @@ type 'a generic_cfg =
 
 let empty_generic_cfg: 'a generic_cfg =
   {
-    nodes = NMap.empty;
-    edges = NMap.empty;
+    nodes = IMap.empty;
+    edges = IMap.empty;
     initial = 0;
     final = [0];
     input_var = "";
@@ -37,14 +37,14 @@ let generic_add_node
   (node_id : int)
   (node : 'a)
   : 'a generic_cfg =
-  { cfg with nodes = NMap.add node_id node cfg.nodes }
+  { cfg with nodes = IMap.add node_id node cfg.nodes }
 
 let generic_add_edge
   (cfg : 'a generic_cfg)
   (src : int)
   (dst : out_node)
   : 'a generic_cfg =
-  { cfg with edges = NMap.add src dst cfg.edges }
+  { cfg with edges = IMap.add src dst cfg.edges }
 
 let rec find_all_vars_aexp (a: a_exp) : var_set =
   match a with

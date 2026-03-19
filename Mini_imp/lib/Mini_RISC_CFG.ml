@@ -9,13 +9,13 @@ module SMap = Mini_RISC.SMap
 
 module ISet = Set.Make(Int)
 
-type risc_cfg = instruction list generic_cfg
+type risc_cfg = (instruction list * reg_set) generic_cfg
 
 let empty_risc_cfg: risc_cfg = empty_generic_cfg
 
 (* Helper function that adds a node to the RISC CFG *)
-let add_node (g: risc_cfg) (node_id: int) (code: instruction list) : risc_cfg =
-  generic_add_node g node_id code
+let add_node (g: risc_cfg) (node_id: int) (code: instruction list) (def_regs: reg_set) : risc_cfg =
+  generic_add_node g node_id (code, def_regs)
 
 (* Helper function that adds an edge to the RISC CFG *)
 let add_edge (g: risc_cfg) (src: int) (dst: out_node) : risc_cfg =
@@ -41,11 +41,11 @@ let translate_cfg (g: cfg): risc_cfg =
     else
       (* Add the current node to the visited set and translate the block *)
       let visited = ISet.add node_id visited in
-      let (stmts, _) = NMap.find node_id cfg.nodes in
-      let instructions, next_reg_map = translate_stmts stmts curr_reg_map in
+      let (stmts, _) = IMap.find node_id cfg.nodes in
+      let instructions, next_reg_map, def_regs = translate_stmts stmts curr_reg_map in
       (* Add the corresponding RISC node and the edges to the RISC CFG *)
-      let risc_cfg = add_node risc_cfg node_id instructions in
-      match NMap.find_opt node_id cfg.edges with
+      let risc_cfg = add_node risc_cfg node_id instructions def_regs in
+      match IMap.find_opt node_id cfg.edges with
       (* If there is no outgoing edge, the final node has been reached *)
       | None -> (risc_cfg, visited, next_reg_map)
       | Some out_edge ->
@@ -86,7 +86,7 @@ let string_of_label (node_id: int) : string =
 
 (* Helper function that appends a jump instruction representing the outgoing edge of the node *)
 let append_jump (cfg: risc_cfg) (node_id: int) (instrs: instruction list) : instruction list =
-  match NMap.find_opt node_id cfg.edges with
+  match IMap.find_opt node_id cfg.edges with
   (* If there is no outgoing edge, the final node has been reached *)
   | None -> instrs
   (* If there is a single outgoing edge, append a jump *)
@@ -101,10 +101,10 @@ let risc_cfg_to_code
   (string_of_instruction : instruction -> string)
   (cfg : risc_cfg)
   : string =
-  List.fold_left (fun acc (node_id, instrs) ->
+  List.fold_left (fun acc (node_id, (instrs, def_regs)) ->
     let label = string_of_label node_id in
     let instructions = append_jump cfg node_id instrs in
     acc ^ label ^ ":\n"
     ^ String.concat "\n" (List.map (fun instr -> "\t" ^ string_of_instruction instr) instructions)
     ^ "\n"
-  ) "" (NMap.bindings cfg.nodes)
+  ) "" (IMap.bindings cfg.nodes)

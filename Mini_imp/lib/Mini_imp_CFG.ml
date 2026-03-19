@@ -32,7 +32,7 @@ let add_edge (g: cfg) (src: int) (dst: out_node) : cfg =
 
 (* Helper functions that retrives the next node in the cfg *)
 let next_node_id (g: cfg) : int =
-  match List.rev (NMap.bindings g.nodes) with
+  match List.rev (IMap.bindings g.nodes) with
   | (node_id, _) :: _ -> node_id + 1
   | [] -> 0
 
@@ -40,7 +40,7 @@ let next_node_id (g: cfg) : int =
 let connect_pending_node (g: cfg) (src: int) (dst: int) : cfg =
   if src = dst then g
   else
-    match NMap.find_opt src g.edges with
+    match IMap.find_opt src g.edges with
     (* If no edge exists from the source node, create a new edge *)
     | None -> add_edge g src (Single dst)
     (* If an edge already exists, there is no need to update the cfg *)
