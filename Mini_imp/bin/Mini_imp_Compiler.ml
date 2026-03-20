@@ -5,10 +5,11 @@ open Mini_imp_Lib.Mini_imp_CFG
 open Mini_imp_Lib.Mini_RISC
 open Mini_imp_Lib.Mini_RISC_CFG
 open Mini_imp_Lib.Mini_imp_DefVars
+open Mini_imp_Lib.Mini_RISC_LiveRegs
 open Mini_imp_Lib.Mini_imp_Printer
 
 let usage =
-	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] <input.mimp> <output.risc>"
+	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] [--print-liveness] <input.mimp> <output.risc>"
 
 let parse_program (input_file : string) =
 	let ic = open_in input_file in
@@ -20,6 +21,7 @@ let parse_program (input_file : string) =
 let compile_file
   ~(show_cfg : bool)
 	~(check_undefined : bool)
+  ~(print_liveness : bool)
 	~(input_file : string)
 	~(output_file : string)
 	: unit =
@@ -32,7 +34,13 @@ let compile_file
 		let _ = defined_analysis cfg in
 		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
 	);
-	let risc_cfg = translate_cfg cfg in
+  let risc_cfg = build_risc_cfg cfg in
+  if print_liveness then (
+    let df_risc_cfg = build_dataflow_risc_cfg risc_cfg in
+    let liveness_info = liveness_global_update df_risc_cfg in
+    Printf.printf "Performing liveness analysis...\n";
+    print_in_out_regs liveness_info;
+  );
 	let risc_code = risc_cfg_to_code string_of_risc_instruction risc_cfg in
 	let oc = open_out output_file in
 	output_string oc risc_code;
@@ -41,12 +49,14 @@ let compile_file
 let () =
   let show_cfg = ref false in
 	let check_undefined = ref false in
+	let print_liveness = ref false in
 	let positional = ref [] in
 
 	let specs =
 		[
       ("--show-cfg", Arg.Set show_cfg, "Print the generated CFG");
       ("--check-undefined", Arg.Set check_undefined, "Enable undefined variable check");
+      ("--print-liveness", Arg.Set print_liveness, "Print liveness information");
     ]
 	in
 
@@ -58,6 +68,7 @@ let () =
 			compile_file
         ~show_cfg:!show_cfg
         ~check_undefined:!check_undefined
+        ~print_liveness:!print_liveness
         ~input_file
         ~output_file;
       Printf.printf "Compiled %s -> %s\n" input_file output_file

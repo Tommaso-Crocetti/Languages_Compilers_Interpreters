@@ -96,7 +96,7 @@ let generic_cfg_to_string
 
 let cfg_to_string (cfg: cfg) : string =
   generic_cfg_to_string
-    (fun node_id (stmts, _def_vars) ->
+    (fun node_id stmts ->
     let stmts_str = String.concat "; " (List.map string_of_cfg_statement stmts) in
     string_of_int node_id ^ ": " ^ stmts_str)
     cfg

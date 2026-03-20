@@ -9,13 +9,13 @@ module SMap = Mini_RISC.SMap
 type risc_cfg = instruction list generic_cfg
 
 (* Main function, translates a CFG to a RISC CFG by traversing the original one *)
-let translate_cfg (cfg: cfg): risc_cfg =
+let build_risc_cfg (cfg: cfg): risc_cfg =
   let initial_reg_map = initial_reg_map cfg.input_var cfg.output_var in
   let all_vars_reg_map = SSet.fold (fun var acc ->
     if SMap.mem var acc then acc
     else SMap.add var (fresh_reg ()) acc
   ) cfg.all_vars initial_reg_map in
-  let risc_nodes = IMap.mapi (fun node_id (stmts, _) ->
+  let risc_nodes = IMap.mapi (fun node_id stmts ->
     let instructions, _ = translate_stmts stmts all_vars_reg_map in
     instructions
   ) cfg.nodes in
@@ -38,14 +38,20 @@ let append_jump (cfg: risc_cfg) (node_id: int) (instrs: instruction list) : inst
   | Some (Pair (left_node, right_node)) ->
     instrs @ [CJump (Ra, string_of_label left_node, string_of_label right_node)]
 
+let risc_cfg_with_jumps (risc_cfg: risc_cfg) : risc_cfg =
+  let nodes_with_jumps = IMap.mapi (fun node_id instrs ->
+    append_jump risc_cfg node_id instrs
+  ) risc_cfg.nodes in
+  { risc_cfg with nodes = nodes_with_jumps }
+
 let risc_cfg_to_code
   (string_of_instruction : instruction -> string)
   (cfg : risc_cfg)
   : string =
+  let cfg = risc_cfg_with_jumps cfg in
   List.fold_left (fun acc (node_id, (instrs)) ->
     let label = string_of_label node_id in
-    let instructions = append_jump cfg node_id instrs in
     acc ^ label ^ ":\n"
-    ^ String.concat "\n" (List.map (fun instr -> "\t" ^ string_of_instruction instr) instructions)
+    ^ String.concat "\n" (List.map (fun instr -> "\t" ^ string_of_instruction instr) (IMap.find node_id cfg.nodes)) ^ "\n"
     ^ "\n"
   ) "" (IMap.bindings cfg.nodes)

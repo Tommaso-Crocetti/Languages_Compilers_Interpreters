@@ -1,0 +1,13 @@
+main:
+	LoadI 0 => ra
+	less in ra => ra
+	CJump ra l1 l2
+l1:
+	LoadI 1 => r5
+	Jump l3
+l2:
+	LoadI 2 => r4
+	Jump l3
+l3:
+	copy r5 => out
+	copy out => r3
