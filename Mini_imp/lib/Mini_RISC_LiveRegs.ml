@@ -13,8 +13,8 @@ type dataflow_risc_node =
 
 type dataflow_risc_cfg = dataflow_risc_node generic_cfg
 
-let build_dataflow_risc_cfg (cfg: risc_cfg) : dataflow_risc_cfg =
-  let cfg_with_jumps = risc_cfg_with_jumps cfg in
+let build_dataflow_risc_cfg (cfg: risc_cfg) (guard_reg: reg) : dataflow_risc_cfg =
+  let cfg_with_jumps = risc_cfg_with_jumps guard_reg cfg in
 	let nodes = IMap.map (fun instructions -> { instructions; in_regs = RSet.empty; out_regs = RSet.empty }) cfg_with_jumps.nodes in
 	{ nodes; edges = cfg_with_jumps.edges; initial = cfg_with_jumps.initial; final = cfg_with_jumps.final; all_vars = cfg_with_jumps.all_vars; input_var = cfg_with_jumps.input_var; output_var = cfg_with_jumps.output_var }
 
@@ -25,8 +25,8 @@ let liveness_local_update (df_cfg: dataflow_risc_cfg) (node_id: int) (used_defin
 		| [n] -> n
 		| _ -> raise (Error ("unexpected not single final node"))
 	in 
-	let new_out_regs = if node_id = final_node_id then RSet.singleton Rout
-	else 
+  let new_out_regs = if node_id = final_node_id then RSet.singleton Rout
+	else
 		let out_node = IMap.find node_id df_cfg.edges in
 		match out_node with
 		| Single dst_id -> (IMap.find dst_id df_cfg.nodes).in_regs

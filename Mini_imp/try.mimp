@@ -1,6 +1,6 @@
 def main with input x output y as
     a := x;
-    if a < 0 then z := (0 - a) + (1 * x) * (x + 3 - 2) + (x + 2 - 3) else skip;
+    if a < 0 then z := (2 - a) + (2 * x) * (x + 3 - 2) + (x + 2 - 3) else skip;
     if a < 1 then f := 1 else skip;
     b := a + 1;
     while (a < b) or (b < a) do

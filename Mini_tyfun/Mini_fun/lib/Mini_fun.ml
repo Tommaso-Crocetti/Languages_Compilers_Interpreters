@@ -56,21 +56,22 @@ let rec eval_t (t: term) (env: env) : runtime_value =
   match t with
   | Int n -> IntV n
   | Bool b -> BoolV b
-  | Var x -> (match SMap.find_opt x env with
-              | Some v -> v
-              | None -> failwith ("Variable " ^ x ^ " not found in environment."))
+  | Var x -> 
+    (match SMap.find_opt x env with
+      | Some v -> v
+      | None -> failwith ("Variable " ^ x ^ " not found in environment."))
   | Fun (x, body) -> ClosureV (x, body, env)
   | App (f, arg) ->
       let f_val = eval_t f env in
       let arg_val = eval_t arg env in
       (match f_val with
        | ClosureV (x, body, closure_env) ->
-           let new_env = SMap.add x arg_val closure_env in
-           eval_t body new_env
+          let new_env = SMap.add x arg_val closure_env in
+          eval_t body new_env
        | RecClosureV (f_name, x, body, closure_env) ->
-           let rec_env = SMap.add f_name f_val closure_env in
-           let new_env = SMap.add x arg_val rec_env in
-           eval_t body new_env
+          let rec_env = SMap.add f_name f_val closure_env in
+          let new_env = SMap.add x arg_val rec_env in
+          eval_t body new_env
        | _ -> failwith "Attempting to apply a non-function value.")
   | Op (op, t1, t2) ->
     let v1 = eval_t t1 env in

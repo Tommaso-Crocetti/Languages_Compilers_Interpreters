@@ -34,14 +34,16 @@ let compile_file
 		let _ = defined_analysis cfg in
 		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
 	);
-  let risc_cfg = build_risc_cfg cfg in
-  if print_liveness then (
-    let df_risc_cfg = build_dataflow_risc_cfg risc_cfg in
+  let risc_cfg, all_vars_reg_map, guard_reg = build_risc_cfg cfg in
+(* Printf.printf "Final register mapping:\n";
+  SMap.iter (fun var reg -> Printf.printf "  %s -> %s\n" var (string_of_risc_reg reg)) all_vars_reg_map;
+*)  if print_liveness then (
+    let df_risc_cfg = build_dataflow_risc_cfg risc_cfg guard_reg in
     let liveness_info = liveness_global_update df_risc_cfg in
     Printf.printf "Performing liveness analysis...\n";
     print_in_out_regs liveness_info;
   );
-	let risc_code = risc_cfg_to_code string_of_risc_instruction risc_cfg in
+	let risc_code = risc_cfg_to_code string_of_risc_instruction guard_reg risc_cfg in
 	let oc = open_out output_file in
 	output_string oc risc_code;
 	close_out oc

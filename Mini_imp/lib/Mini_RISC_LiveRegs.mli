@@ -11,7 +11,7 @@ type dataflow_risc_node =
 
 type dataflow_risc_cfg = dataflow_risc_node generic_cfg
 
-val build_dataflow_risc_cfg : risc_cfg -> dataflow_risc_cfg
+val build_dataflow_risc_cfg : risc_cfg -> reg -> dataflow_risc_cfg
 val liveness_local_update : dataflow_risc_cfg -> int -> reg_set * reg_set -> reg_set * reg_set
 val liveness_global_update : dataflow_risc_cfg -> dataflow_risc_cfg
 

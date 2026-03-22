@@ -32,14 +32,17 @@ type instruction =
 (* Code is a mapping from labels to lists of instructions *)
 type code = instruction list SMap.t
 
-(* Helper function to generate a fresh register *)
-let fresh_reg : unit -> reg =
-  let next = ref (-1) in
-  fun () ->
-    incr next;
-    RVar !next
+(* Helper function to generate and control fresh registers *)
+let next_reg = ref (-1)
 
-let default_temp_regs = [Ra; Rb]
+let fresh_reg () =
+  incr next_reg;
+  RVar !next_reg
+
+let reg_allocator_checkpoint () = !next_reg
+
+let reset_reg_allocator checkpoint =
+  next_reg := checkpoint
 
 (* Helper function to choose the result register *)
 let choose_result_reg (target_reg : reg option) (temp_regs : reg list) : reg =
@@ -75,11 +78,11 @@ let rec translate_aexpr
     else (result_reg, [Urop (Copy, base_reg, result_reg)])
   (* Inductive cases, binary operations: plus and times are managed exploiting commutativity *)
   | Plus (a1, a2) ->
-    translate_commutative_aexpr Add AddI a1 a2 target_reg temp_regs reg_map
+    translate_commutative_aexpr Add AddI a1 a2 (Some result_reg) temp_regs reg_map
   | Minus (a1, a2) ->
-    translate_minus_aexpr target_reg temp_regs a1 a2 reg_map
+    translate_minus_aexpr (Some result_reg) temp_regs a1 a2 reg_map
   | Times (a1, a2) ->
-    translate_commutative_aexpr Mult MultI a1 a2 target_reg temp_regs reg_map
+    translate_commutative_aexpr Mult MultI a1 a2 (Some result_reg) temp_regs reg_map
   | Of_Bool _ ->
     raise (Error "of_bool not supported")
 
@@ -236,7 +239,7 @@ let rec translate_bexpr
     (* true && _ / _ && true, translate the other operand and perform a biop *)
     | (Bval true, b) | (b, Bval true) ->
       let (_, code) = translate_bexpr b (Some result_reg) nested_temp_regs reg_map in
-      (result_reg, code @ [Biop (AndI, result_reg, 1, result_reg)])
+      (result_reg, code)
     (* b1 && b2, translate both operands and perform a brop *)
     | _ ->
     let (t1, code1) = translate_bexpr b1 None nested_temp_regs reg_map in
@@ -253,7 +256,7 @@ let rec translate_bexpr
     (* false || _ / _ || false, translate the other operand and perform a biop *)
     | (Bval false, b) | (b, Bval false) ->
       let (_, code) = translate_bexpr b (Some result_reg) nested_temp_regs reg_map in
-      (result_reg, code @ [Biop (OrI, result_reg, 0, result_reg)])
+      (result_reg, code)
     (* b1 || b2, translate both operands and perform a brop *)
     | _ ->
       let (t1, code1) = translate_bexpr b1 None nested_temp_regs reg_map in
@@ -318,7 +321,12 @@ let rec translate_bexpr
       (result_reg, code1 @ code2 @ [Brop (Less, t1, result_reg, result_reg)])
     )
 (* Function that translates a list of statements into a list of RISC instructions *)
-let translate_stmts (stmts: statement list) (reg_map: var_to_reg) : instruction list * var_to_reg =
+let translate_stmts
+  (stmts: statement list)
+  (temp_regs: reg list)
+  (guard_reg: reg)
+  (reg_map: var_to_reg)
+  : instruction list * var_to_reg =
   let rev_instruction_list, final_reg_map =
     List.fold_left (fun (acc, curr_reg_map) stmt ->
       match stmt with
@@ -330,15 +338,14 @@ let translate_stmts (stmts: statement list) (reg_map: var_to_reg) : instruction 
         let (x_reg, next_reg_map) =
           match SMap.find_opt x curr_reg_map with
           | Some xr -> (xr, curr_reg_map)
-          | None ->
-              let xr = fresh_reg () in
-              (xr, SMap.add x xr curr_reg_map)
+          | None -> raise (Error (Printf.sprintf "Variable %s not found in register map" x))
         in
-        let (_, rhs_code) = translate_aexpr a (Some x_reg) default_temp_regs curr_reg_map in
+        let (_, rhs_code) = translate_aexpr a (Some x_reg) temp_regs curr_reg_map in
         (rhs_code :: acc, next_reg_map)
-      (* Guards are always evaluated into Ra for the following conditional jump. *)
+      (* Guards are always evaluated into the reserved guard register for the following conditional jump. *)
       | Guard (b) ->
-        let (_, code) = translate_bexpr b (Some Ra) [Rb] curr_reg_map in
+        let guard_temp_regs = available_temp_regs guard_reg temp_regs in
+        let (_, code) = translate_bexpr b (Some guard_reg) guard_temp_regs curr_reg_map in
         (code :: acc, curr_reg_map)
     ) ([], reg_map) stmts
   in
@@ -359,13 +366,20 @@ let find_used_defined_regs (instrs: instruction list) : reg_set * reg_set =
           (used_regs2, RSet.add r3 def_regs)
       | Biop (_, r1, _, r2)
       | Urop (_, r1, r2)
-      | Load (r1, r2)
-      | Store (r1, r2) ->
+      | Load (r1, r2) ->
           let used_regs1 =
             if RSet.mem r1 def_regs then used_regs else RSet.add r1 used_regs
           in
           (used_regs1, RSet.add r2 def_regs)
       | LoadI (_, r) -> (used_regs, RSet.add r def_regs)
+      | Store (r1, r2) ->
+          let used_regs1 =
+            if RSet.mem r1 def_regs then used_regs else RSet.add r1 used_regs
+          in
+          let used_regs2 =
+            if RSet.mem r2 def_regs then used_regs1 else RSet.add r2 used_regs1
+          in
+          (used_regs2, def_regs)
       | CJump (r, _, _) ->
           let used_regs =
             if RSet.mem r def_regs then used_regs else RSet.add r used_regs

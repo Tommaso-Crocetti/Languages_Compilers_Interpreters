@@ -31,7 +31,8 @@ type instruction =
 type code = instruction list SMap.t
 
 val fresh_reg : unit -> reg
-val default_temp_regs : reg list
+val reg_allocator_checkpoint : unit -> int
+val reset_reg_allocator : int -> unit
 val choose_result_reg : reg option -> reg list -> reg
 val available_temp_regs : reg -> reg list -> reg list
 val initial_reg_map : string -> string -> var_to_reg
@@ -60,6 +61,11 @@ val translate_minus_aexpr :
 val translate_bexpr :
   b_exp -> reg option -> reg list -> var_to_reg -> reg * instruction list
 
-val translate_stmts : statement list -> var_to_reg -> instruction list * var_to_reg
+val translate_stmts :
+  statement list ->
+  reg list ->
+  reg ->
+  var_to_reg ->
+  instruction list * var_to_reg
 
 val find_used_defined_regs : instruction list -> reg_set * reg_set
