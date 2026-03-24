@@ -12,7 +12,6 @@ type var_to_reg = reg SMap.t
 module RSet : Set.S with type elt = reg
 
 type reg_set = RSet.t
-
 type brop = Add | Sub | Mult | And | Or | Less
 type biop = AddI | SubI | MultI | AndI | OrI
 type urop = Not | Copy
@@ -68,4 +67,6 @@ val translate_stmts :
   var_to_reg ->
   instruction list * var_to_reg
 
+val find_defined_reg : instruction -> reg option
+val find_used_regs : instruction -> reg_set
 val find_used_defined_regs : instruction list -> reg_set * reg_set

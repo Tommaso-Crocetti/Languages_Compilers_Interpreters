@@ -11,12 +11,10 @@ val aexp_to_string : a_exp -> string
 val bexp_to_string : b_exp -> string
 val command_to_string : command -> string
 val program_to_string : program -> string
-
 val string_of_cfg_statement : statement -> string
 val string_of_cfg_out_node : out_node -> string
 val generic_cfg_to_string : (int -> 'a -> string) -> 'a generic_cfg -> string
 val cfg_to_string : cfg -> string
-
 val string_of_risc_reg : reg -> string
 val string_of_risc_brop : brop -> string
 val string_of_risc_biop : biop -> string
