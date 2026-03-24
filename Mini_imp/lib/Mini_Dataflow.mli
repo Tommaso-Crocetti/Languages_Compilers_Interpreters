@@ -10,3 +10,5 @@ val visit :
   (int -> int list) ->
   (int list -> int -> int list -> int list) ->
   'node generic_cfg
+(** Compute the fixpoint of the dataflow analysis by propagating local updates,
+    exploiting a worklist-based algorithm *)

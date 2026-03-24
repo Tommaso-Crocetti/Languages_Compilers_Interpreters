@@ -31,6 +31,9 @@ val eval_aexp : a_exp -> state -> int
 val eval_bexp : b_exp -> state -> bool
 val eval_c : command -> state -> state
 val execute : program -> int -> int
+(** Finds all variables in an arithmetic expression *)
 val find_all_vars_aexp : a_exp -> var_set
+(** Finds all variables in a boolean expression *)
 val find_all_vars_bexp : b_exp -> var_set
+(** Finds all variables in a command *)
 val find_all_vars_command : command -> var_set

@@ -71,6 +71,7 @@ let execute (p : program) (n : int) : int =
       raise
         (Error ("output variable " ^ p.output_var ^ " not found in final state."))
 
+(** Finds all variables in an arithmetic expression *)
 let rec find_all_vars_aexp (a : a_exp) : var_set =
   match a with
   | Aval _ -> SSet.empty
@@ -79,6 +80,7 @@ let rec find_all_vars_aexp (a : a_exp) : var_set =
   | Plus (a1, a2) | Minus (a1, a2) | Times (a1, a2) ->
       SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
 
+(** Finds all variables in a boolean expression *)
 and find_all_vars_bexp (b : b_exp) : var_set =
   match b with
   | Bval _ -> SSet.empty
@@ -87,6 +89,7 @@ and find_all_vars_bexp (b : b_exp) : var_set =
   | Not b1 -> find_all_vars_bexp b1
   | Minor (a1, a2) -> SSet.union (find_all_vars_aexp a1) (find_all_vars_aexp a2)
 
+(** Finds all variables in a command *)
 let rec find_all_vars_command (c : command) : var_set =
   match c with
   | Skip -> SSet.empty

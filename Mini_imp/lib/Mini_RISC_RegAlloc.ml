@@ -1,14 +1,9 @@
-(* Slight changes to chaitlin algorithm *)
-(* Management of rin and rout colored, check (also if rin and rout have same color) *)
-(* Check coloring strategies *)
-(* Manage spilling of rin, rout*)
-(* Add flag for deactivating liveness analysis *)
-
 open Mini_CFG
 open Mini_RISC
 open Mini_RISC_CFG
 open Mini_Dataflow
 open Mini_RISC_LiveRegs
+
 module IMap = Mini_Modules.IMap
 module SMap = Mini_Modules.SMap
 
@@ -21,69 +16,82 @@ end)
 type vertex = {
   reg : reg;
   degree : int;
-  cost : int;
+  cost : float;
   color : int;
-  spilled : bool;
 }
 
-type interference_graph = RSet.t RMap.t
+type reg_set = RSet.t
+type cost_map = int RMap.t
+type interference_graph = reg_set RMap.t
 type address_map = int RMap.t
 
-module VertexStack = struct
-  type t = vertex Stack.t
 
-  let create () : t = Stack.create ()
-  let push (v : vertex) (s : t) : unit = Stack.push v s
-  let pop (s : t) : vertex = Stack.pop s
-  let is_empty (s : t) : bool = Stack.is_empty s
+module VertexStack = struct
+    type t = vertex Stack.t
+    let create () : t = Stack.create ()
+    let push (v : vertex) (s : t) : unit = Stack.push v s
+    let pop (s : t) : vertex = Stack.pop s
+    let is_empty (s : t) : bool = Stack.is_empty s
 end
 
-module VSetDegree = Set.Make (struct
-  type t = vertex
+type vstack = VertexStack.t
 
-  let compare v1 v2 =
+module VSetDegree = Set.Make (struct
+type t = vertex
+
+let compare v1 v2 =
     if v1.degree <> v2.degree then compare v1.degree v2.degree
     else compare v1.reg v2.reg
 end)
 
+type vset_degree = VSetDegree.t
+
 module VSetCost = Set.Make (struct
-  type t = vertex
+type t = vertex
 
   let compare v1 v2 =
     if v1.cost <> v2.cost then compare v1.cost v2.cost
     else compare v1.reg v2.reg
 end)
 
-module VSetColor = Set.Make (struct
-  type t = vertex
+type vset_cost = VSetCost.t
 
-  let compare v1 v2 =
+module VSetColor = Set.Make (struct
+type t = vertex
+
+let compare v1 v2 =
     if v1.color <> v2.color then compare v1.color v2.color
     else compare v1.reg v2.reg
 end)
 
-let compute_cost (df_risc_cfg : dataflow_risc_cfg) (reg : reg) : int =
-  let used_defined_map =
-    IMap.map
-      (fun df_node -> find_used_defined_regs df_node.instructions)
-      df_risc_cfg.nodes
-  in
-  IMap.fold
-    (fun node_id dataflow_node acc ->
-      let instructions = dataflow_node.instructions in
-      let reg_usage =
-        List.fold_left
-          (fun usage instr ->
-            let used, defined = IMap.find node_id used_defined_map in
-            if RSet.mem reg used then usage + 1
-            else if RSet.mem reg defined then usage + 1
-            else usage)
-          0 instructions
-      in
-      acc + reg_usage)
-    df_risc_cfg.nodes 0
+type vset_color = VSetColor.t
 
-let registers_in_block (instrs : instruction list) : RSet.t =
+type color_map = reg RMap.t
+
+let is_reserved_register (reg : reg) : bool =
+  match reg with Rin | Rout -> true | _ -> false
+
+let increment_cost (reg : reg) (cost_map : cost_map) : cost_map =
+  if is_reserved_register reg then cost_map
+  else
+    let current = match RMap.find_opt reg cost_map with Some v -> v | None -> 0 in
+    RMap.add reg (current + 1) cost_map
+
+let compute_cost_map (df_risc_cfg : dataflow_risc_cfg) : cost_map =
+  IMap.fold
+    (fun _ df_node acc ->
+      List.fold_left
+        (fun cost_map instr ->
+          let regs =
+            match find_defined_reg instr with
+            | Some def_reg -> RSet.add def_reg (find_used_regs instr)
+            | None -> find_used_regs instr
+          in
+          RSet.fold (fun reg map -> increment_cost reg map) regs cost_map)
+        acc df_node.instructions)
+    df_risc_cfg.nodes RMap.empty
+
+let registers_in_block (instrs : instruction list) : reg_set =
   List.fold_left
     (fun acc instr ->
       let acc =
@@ -94,27 +102,32 @@ let registers_in_block (instrs : instruction list) : RSet.t =
       RSet.union acc (find_used_regs instr))
     RSet.empty instrs
 
-let registers_in_cfg (cfg : dataflow_risc_cfg) : RSet.t =
+let registers_in_cfg (cfg : dataflow_risc_cfg) : reg_set =
   IMap.fold
     (fun _ df_node acc ->
       RSet.union acc (registers_in_block df_node.instructions))
     cfg.nodes RSet.empty
 
+let remove_reserved_bindings (map : var_to_reg) : var_to_reg =
+  SMap.fold
+    (fun var reg acc ->
+      match reg with
+      | Rin | Rout -> acc
+      | _ -> SMap.add var reg acc)
+    map SMap.empty
+
 let extend_reg_map (df_risc_cfg : dataflow_risc_cfg) (base_map : var_to_reg) :
     var_to_reg =
+  let sanitized_map = remove_reserved_bindings base_map in
   let regs = registers_in_cfg df_risc_cfg in
   RSet.fold
     (fun reg acc ->
       match reg with
-      | Rin | Rout -> acc
-      | Ra | Rb ->
-          raise
-            (Error
-               "Reserved temporary registers Ra/Rb cannot be used in this phase")
+      | Rin | Rout | Ra | Rb -> acc
       | RVar id ->
           let name = Printf.sprintf "t%d" id in
           if SMap.mem name acc then acc else SMap.add name reg acc)
-    regs base_map
+    regs sanitized_map
 
 let initialize_interference_graph (df_risc_cfg : dataflow_risc_cfg)
     (var_to_reg : var_to_reg) : interference_graph * var_to_reg =
@@ -126,9 +139,10 @@ let initialize_interference_graph (df_risc_cfg : dataflow_risc_cfg)
   in
   (initial_graph, extended_map)
 
-let add_interference_edge (graph : interference_graph) (reg1 : reg) (reg2 : reg)
-    : interference_graph =
-  if reg1 = reg2 then graph
+let add_interference_edge (graph : interference_graph) (reg1 : reg)
+    (reg2 : reg) : interference_graph =
+  if reg1 = reg2 || is_reserved_register reg1 || is_reserved_register reg2 then
+    graph
   else
     let neighbors =
       match RMap.find_opt reg1 graph with
@@ -137,7 +151,18 @@ let add_interference_edge (graph : interference_graph) (reg1 : reg) (reg2 : reg)
     in
     RMap.add reg1 neighbors graph
 
-let compute_live_ranges (df_risc_cfg : dataflow_risc_cfg)
+let build_without_liveness (int_graph : interference_graph)
+    (extended_map : var_to_reg) : interference_graph =
+  let regs =
+    SMap.fold (fun _ reg acc -> RSet.add reg acc) extended_map RSet.empty
+  in RSet.fold
+    (fun reg acc ->
+      if is_reserved_register reg then acc
+      else RMap.add reg (RSet.filter (fun curr_reg -> curr_reg <> reg) regs) acc)
+    regs int_graph
+
+
+let build_with_liveness (df_risc_cfg : dataflow_risc_cfg)
     (graph : interference_graph) =
   IMap.fold
     (fun _ df_node acc_graph ->
@@ -167,149 +192,157 @@ let compute_live_ranges (df_risc_cfg : dataflow_risc_cfg)
       updated_graph)
     df_risc_cfg.nodes graph
 
+let reset_interference_graph (int_graph : interference_graph) (spilled_reg: reg) (cost_map : cost_map) : interference_graph * vset_degree * vset_cost * vset_color =
+    let initial_new_graph = RMap.remove spilled_reg int_graph in
+    let new_graph = RMap.map (fun neighbors -> RSet.remove spilled_reg neighbors) initial_new_graph in
+    let new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color =
+      RMap.fold
+        (fun reg neighbors (degree_set, cost_set, color_set) ->
+          let degree = RSet.cardinal neighbors in
+          let cost = match RMap.find_opt reg cost_map with Some c -> float_of_int c /. float_of_int degree | None -> 0.0 in
+          let vertex = { reg; degree; cost; color = -1 } in
+          ( VSetDegree.add vertex degree_set,
+            VSetCost.add vertex cost_set,
+            VSetColor.add vertex color_set ))
+        new_graph
+        (VSetDegree.empty, VSetCost.empty, VSetColor.empty)
+        in (new_graph, new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color)
+
 let implicit_remove_vertex (int_graph : interference_graph) (vertex : vertex)
-    (curr_reg_set : VSetDegree.t) : VSetDegree.t =
-  VSetDegree.filter_map
+    (vertex_by_degree : vset_degree) (vertex_by_cost : vset_cost) (vertex_by_color : vset_color): vset_degree * vset_cost * vset_color =
+  let new_vertex_by_degree = VSetDegree.filter_map
     (fun v ->
       if v.reg = vertex.reg then None
       else
-        match RSet.find_opt v.reg (RMap.find v.reg int_graph) with
+        match RSet.find_opt vertex.reg (RMap.find v.reg int_graph) with
         | Some _ ->
             if v.degree > 0 then Some { v with degree = v.degree - 1 } else None
         | None -> Some v)
-    curr_reg_set
-
-let rec retrieve_best_reg (vertex_by_cost : VSetCost.t) (curr_reg_set : reg_set)
-    : vertex * VSetCost.t =
-  let best_vertex_opt = VSetCost.min_elt_opt vertex_by_cost in
-  match best_vertex_opt with
-  | Some best_vertex ->
-      if RSet.mem best_vertex.reg curr_reg_set then (best_vertex, vertex_by_cost)
-      else
-        retrieve_best_reg
-          (VSetCost.remove best_vertex vertex_by_cost)
-          curr_reg_set
-  | None -> raise (Failure "No vertex available in vertex_by_cost")
+    vertex_by_degree in
+    let new_vertex_by_cost = VSetCost.filter (fun v -> v.reg <> vertex.reg) vertex_by_cost in
+    let new_vertex_by_color = VSetColor.filter (fun v -> v.reg <> vertex.reg) vertex_by_color in
+    (new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color)
 
 let rec push_by_degree (int_graph : interference_graph)
-    (vertex_stack : VertexStack.t) (curr_reg_set : RSet.t)
-    (vertex_by_degree : VSetDegree.t) (vertex_by_cost : VSetCost.t)
-    (vertex_by_color : VSetColor.t) (curr_spilled_regs : RSet.t) (max_reg : int)
-    : VSetColor.t * reg_set =
+    (vertex_stack : vstack)
+    (vertex_by_degree : vset_degree) (vertex_by_cost : vset_cost)
+    (vertex_by_color : vset_color) (curr_spilled_regs : reg_set) (max_reg : int) (cost_map : cost_map)
+    : vset_color * reg_set =
   let next = VSetDegree.min_elt_opt vertex_by_degree in
   match next with
   | Some vertex ->
       if vertex.degree < max_reg then (
         VertexStack.push vertex vertex_stack;
-        let new_curr_reg_set = RSet.remove vertex.reg curr_reg_set in
-        let new_vertex_by_degree =
-          implicit_remove_vertex int_graph vertex vertex_by_degree
+        let (new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color) =
+          implicit_remove_vertex int_graph vertex vertex_by_degree vertex_by_cost vertex_by_color
         in
-        push_by_degree int_graph vertex_stack new_curr_reg_set
-          new_vertex_by_degree vertex_by_cost vertex_by_color curr_spilled_regs
-          max_reg)
+        push_by_degree int_graph vertex_stack 
+          new_vertex_by_degree new_vertex_by_cost new_vertex_by_color curr_spilled_regs
+          max_reg cost_map)
       else
-        push_by_cost int_graph vertex_stack curr_reg_set vertex_by_degree
-          vertex_by_cost vertex_by_color curr_spilled_regs max_reg
+        push_by_cost int_graph vertex_stack vertex_by_degree
+          vertex_by_cost vertex_by_color curr_spilled_regs max_reg cost_map
   | None ->
-      try_color int_graph vertex_stack curr_reg_set vertex_by_degree
-        vertex_by_cost vertex_by_color curr_spilled_regs max_reg
-
-and push_by_cost (int_graph : interference_graph) (vertex_stack : VertexStack.t)
-    (curr_reg_set : RSet.t) (vertex_by_degree : VSetDegree.t)
-    (vertex_by_cost : VSetCost.t) (vertex_by_color : VSetColor.t)
-    (curr_spilled_regs : RSet.t) (max_reg : int) : VSetColor.t * reg_set =
-  let next, updated_vertex_by_cost =
-    retrieve_best_reg vertex_by_cost curr_reg_set
-  in
-  VertexStack.push next vertex_stack;
-  let new_curr_reg_set = RSet.remove next.reg curr_reg_set in
-  let new_vertex_by_degree =
-    implicit_remove_vertex int_graph next vertex_by_degree
-  in
-  push_by_degree int_graph vertex_stack new_curr_reg_set new_vertex_by_degree
-    updated_vertex_by_cost vertex_by_color curr_spilled_regs max_reg
-
-and try_color (int_graph : interference_graph) (vertex_stack : VertexStack.t)
-    (curr_reg_set : RSet.t) (vertex_by_degree : VSetDegree.t)
-    (vertex_by_cost : VSetCost.t) (vertex_by_color : VSetColor.t)
-    (curr_spilled_regs : RSet.t) (max_reg : int) : VSetColor.t * reg_set =
+      try_color int_graph vertex_stack vertex_by_degree vertex_by_cost
+        vertex_by_color curr_spilled_regs max_reg cost_map
+and push_by_cost (int_graph : interference_graph) (vertex_stack : vstack) (vertex_by_degree : vset_degree)
+    (vertex_by_cost : vset_cost) (vertex_by_color : vset_color)
+    (curr_spilled_regs : reg_set) (max_reg : int) (cost_map : cost_map) : vset_color * reg_set =
+  let next = VSetCost.min_elt_opt vertex_by_cost in
+  match next with
+    | None -> raise (Failure "No vertex available in vertex_by_cost")
+    | Some vertex ->
+        VertexStack.push vertex vertex_stack;
+        let (new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color) =
+        implicit_remove_vertex int_graph vertex vertex_by_degree vertex_by_cost vertex_by_color
+        in
+        push_by_degree int_graph vertex_stack
+        new_vertex_by_degree new_vertex_by_cost new_vertex_by_color curr_spilled_regs
+        max_reg cost_map
+and try_color (int_graph : interference_graph) (vertex_stack : vstack)
+    (vertex_by_degree : vset_degree)
+    (vertex_by_cost : vset_cost) (vertex_by_color : vset_color)
+    (curr_spilled_regs : reg_set) (max_reg : int) (cost_map : cost_map) : vset_color * reg_set =
   match VertexStack.is_empty vertex_stack with
   | true -> (vertex_by_color, curr_spilled_regs)
   | false ->
       let next = VertexStack.pop vertex_stack in
       let neighbours = RMap.find next.reg int_graph in
-      let final_color, valid =
-        VSetColor.fold
-          (fun v (curr_color, valid) ->
-            match valid with
-            | false -> (curr_color, false)
-            | true -> (
-                match RSet.mem v.reg neighbours with
-                | true ->
-                    if v.color < curr_color then (curr_color, true)
-                    else if v.color = curr_color then (curr_color + 1, true)
-                    else (curr_color, false)
-                | false -> (curr_color, valid)))
-          vertex_by_color (0, true)
+      let colored_neighbors =
+        VSetColor.filter (fun v -> RSet.mem v.reg neighbours) vertex_by_color
       in
-      if valid && final_color < max_reg then
-        let colored_vertex = { next with color = final_color } in
-        let new_vertex_by_color =
-          VSetColor.add colored_vertex (VSetColor.remove next vertex_by_color)
-        in
-        try_color int_graph vertex_stack curr_reg_set vertex_by_degree
-          vertex_by_cost new_vertex_by_color curr_spilled_regs max_reg
-      else
-        let new_curr_reg_set = RSet.remove next.reg curr_reg_set in
-        let new_spilled_regs = RSet.add next.reg curr_spilled_regs in
-        let new_vertex_by_color = VSetColor.remove next vertex_by_color in
-        push_by_degree int_graph vertex_stack new_curr_reg_set vertex_by_degree
-          vertex_by_cost new_vertex_by_color new_spilled_regs max_reg
+      let max_neighbour_color = VSetColor.max_elt_opt colored_neighbors in
+      match max_neighbour_color with
+      | None -> 
+        let node = { next with color = 0 } in
+        let new_vertex_by_color = VSetColor.add node vertex_by_color in
+        try_color int_graph vertex_stack vertex_by_degree vertex_by_cost
+          new_vertex_by_color curr_spilled_regs max_reg cost_map
+        | Some max_color when max_color.color < max_reg - 1 ->
+            let node = { next with color = max_color.color + 1 } in
+            let new_vertex_by_color = VSetColor.add node vertex_by_color in
+            try_color int_graph vertex_stack vertex_by_degree vertex_by_cost
+              new_vertex_by_color curr_spilled_regs max_reg cost_map
+        | Some max_color ->
+             let new_spilled_regs = RSet.add next.reg curr_spilled_regs in
+             let (new_int_graph, new_vertex_by_degree, new_vertex_by_cost, new_vertex_by_color) = reset_interference_graph int_graph next.reg cost_map in
+        push_by_degree new_int_graph (VertexStack.create ()) new_vertex_by_degree
+          new_vertex_by_cost new_vertex_by_color new_spilled_regs max_reg cost_map
 
-let color_cfg (cfg : dataflow_risc_cfg) (color_map : reg RMap.t) :
-    dataflow_risc_cfg =
+let color_cfg (risc_cfg : risc_cfg) (color_map : color_map)
+    (spilled_regs : reg_set) : risc_cfg =
   let colored_nodes =
     IMap.map
-      (fun df_node ->
+      (fun instrs ->
         let colored_instructions =
           List.map
             (fun instr ->
+              let find_color (reg : reg) : reg =
+                match reg with
+                | Rin | Rout | Ra | Rb -> reg
+                | _ ->
+                    if RSet.mem reg spilled_regs then reg
+                    else
+                      (match RMap.find_opt reg color_map with
+                      | Some c -> c
+                      | None ->
+                          raise
+                            (Failure
+                               "Register allocator produced an unmapped register"))
+              in
               match instr with
               | Nop | Jump _ -> instr
               | Brop (op, r1, r2, r3) ->
                   Brop
                     ( op,
-                      RMap.find r1 color_map,
-                      RMap.find r2 color_map,
-                      RMap.find r3 color_map )
+                      find_color r1,
+                      find_color r2,
+                      find_color r3 )
               | Biop (op, r1, n, r2) ->
-                  Biop (op, RMap.find r1 color_map, n, RMap.find r2 color_map)
+                  Biop (op, find_color r1, n, find_color r2)
               | Urop (op, r1, r2) ->
-                  Urop (op, RMap.find r1 color_map, RMap.find r2 color_map)
-              | Load (r1, addr) -> Load (RMap.find r1 color_map, addr)
-              | LoadI (n, r1) -> LoadI (n, RMap.find r1 color_map)
+                  Urop (op, find_color r1, find_color r2)
+              | Load (r1, addr) -> Load (find_color r1, addr)
+              | LoadI (n, r1) -> LoadI (n, find_color r1)
               | Store (r1, r2) ->
-                  Store (RMap.find r1 color_map, RMap.find r2 color_map)
-              | CJump (r, l1, l2) -> CJump (RMap.find r color_map, l1, l2))
-            df_node.instructions
+                  Store (find_color r1, find_color r2)
+              | CJump (r, l1, l2) -> CJump (find_color r, l1, l2))
+            instrs
         in
-        { df_node with instructions = colored_instructions })
-      cfg.nodes
+        colored_instructions)
+      risc_cfg.nodes
   in
-  { cfg with nodes = colored_nodes }
+  { risc_cfg with nodes = colored_nodes }
 
 let spill_slot_of_reg (reg : reg) : int =
   match reg with
-  | Rin -> 0
-  | Rout -> 1
-  | RVar id -> id + 2
-  | Ra | Rb ->
+  | RVar id -> id
+  | Rin | Rout | Ra | Rb ->
       raise
         (Error
            "Cannot assign a spill slot to reserved temporary registers Ra/Rb")
 
-let build_spill_address_map (spilled_regs : RSet.t) : address_map =
+let build_address_map (spilled_regs : reg_set) : address_map =
   RSet.fold
     (fun reg acc ->
       let slot = spill_slot_of_reg reg in
@@ -317,13 +350,13 @@ let build_spill_address_map (spilled_regs : RSet.t) : address_map =
     spilled_regs RMap.empty
 
 let load_used (temp_reg : reg) (address_map : address_map)
-    (spilled_regs : RSet.t) (reg : reg) : instruction list * reg =
+    (spilled_regs : reg_set) (reg : reg) : instruction list * reg =
   if RSet.mem reg spilled_regs then
     let addr = RMap.find reg address_map in
     ([ LoadI (addr, temp_reg); Load (temp_reg, temp_reg) ], temp_reg)
   else ([], reg)
 
-let store_defined (address_map : address_map) (spilled_regs : RSet.t)
+let store_defined (address_map : address_map) (spilled_regs : reg_set)
     (reg : reg) : instruction list * reg =
   if RSet.mem reg spilled_regs then
     let addr = RMap.find reg address_map in
@@ -331,13 +364,15 @@ let store_defined (address_map : address_map) (spilled_regs : RSet.t)
   else ([], reg)
 
 let rewrite_instruction_for_spill (address_map : address_map)
-    (spilled_regs : RSet.t) (instr : instruction) =
+    (spilled_regs : reg_set) (instr : instruction) =
   match instr with
   | Nop | Jump _ -> [ instr ]
-  | LoadI _ -> [ instr ]
+  | LoadI (n, r) ->
+      let store, target_reg = store_defined address_map spilled_regs r in
+      LoadI (n, target_reg) :: store
   | Brop (op, r1, r2, r3) ->
       let load1, op1 = load_used Ra address_map spilled_regs r1 in
-      let load2, op2 = load_used Rb address_map spilled_regs r2 in
+      let load2, op2 = if r2 <> r1 then load_used Rb address_map spilled_regs r2 else ([], op1) in
       let store, r3 = store_defined address_map spilled_regs r3 in
       load1 @ load2 @ (Brop (op, op1, op2, r3) :: store)
   | Biop (op, r1, imm, r2) ->
@@ -354,95 +389,95 @@ let rewrite_instruction_for_spill (address_map : address_map)
       load1 @ (Load (op1, r2) :: store)
   | Store (r1, r2) ->
       let load1, op1 = load_used Ra address_map spilled_regs r1 in
-      let load2, op2 = load_used Rb address_map spilled_regs r2 in
+      let load2, op2 = if r2 <> r1 then load_used Rb address_map spilled_regs r2 else ([], op1) in
       load1 @ load2 @ [ Store (op1, op2) ]
   | CJump (r, l1, l2) ->
       let load1, op1 = load_used Ra address_map spilled_regs r in
       load1 @ [ CJump (op1, l1, l2) ]
 
-let spill_cfg (cfg : dataflow_risc_cfg) (spilled_regs : RSet.t) :
-    dataflow_risc_cfg =
-  if RSet.is_empty spilled_regs then cfg
+let spill_cfg (risc_cfg : risc_cfg) (spilled_regs : reg_set) :
+    risc_cfg =
+  if RSet.is_empty spilled_regs then risc_cfg
   else
-    let address_map = build_spill_address_map spilled_regs in
+    let address_map = build_address_map spilled_regs in
     let spilled_nodes =
       IMap.map
-        (fun df_node ->
+        (fun instrs ->
           let spilled_instructions =
             List.concat
               (List.map
                  (rewrite_instruction_for_spill address_map spilled_regs)
-                 df_node.instructions)
+                 instrs)
           in
-          { df_node with instructions = spilled_instructions })
-        cfg.nodes
+          spilled_instructions)
+        risc_cfg.nodes
     in
-    { cfg with nodes = spilled_nodes }
+    { risc_cfg with nodes = spilled_nodes }
 
-let global_allocation (df_risc_cfg : dataflow_risc_cfg) (max_reg : int)
-    (var_to_reg : var_to_reg) =
+let global_allocation (df_risc_cfg : dataflow_risc_cfg) (risc_cfg : risc_cfg)
+    (max_reg : int) (var_to_reg : var_to_reg) =
   if max_reg < 4 then
     raise
       (Failure
          "Register allocation impossible: max_reg must be at least 4 to
           accommodate reserved registers")
   else
-    let base_graph, extended_reg_map =
-      initialize_interference_graph df_risc_cfg var_to_reg
-    in
-    let interference_graph = compute_live_ranges df_risc_cfg base_graph in
-    let vertex_by_degree, vertex_by_cost, vertex_by_color =
-      RMap.fold
-        (fun reg neighbors (degree_set, cost_set, color_set) ->
-          let degree = RSet.cardinal neighbors in
-          let cost = compute_cost df_risc_cfg reg in
-          let vertex = { reg; degree; cost; color = -1; spilled = false } in
-          ( VSetDegree.add vertex degree_set,
-            VSetCost.add vertex cost_set,
-            VSetColor.add vertex color_set ))
-        interference_graph
-        (VSetDegree.empty, VSetCost.empty, VSetColor.empty)
-    in
-    let initial_reg_set =
-      SMap.fold (fun _ reg acc -> RSet.add reg acc) extended_reg_map RSet.empty
-    in
-    let colors, spilled_regs =
-      push_by_degree interference_graph (VertexStack.create ()) initial_reg_set
-        vertex_by_degree vertex_by_cost vertex_by_color RSet.empty (max_reg - 2)
-    in
-    let rin_color =
-      VSetColor.fold
-        (fun vertex acc ->
-          match acc with
-          | Some _ -> acc
-          | None when vertex.reg = Rin -> Some vertex.color
-          | _ -> acc)
-        colors None
-    in
-    let rout_color =
-      VSetColor.fold
-        (fun vertex acc ->
-          match acc with
-          | Some _ -> acc
-          | None when vertex.reg = Rout -> Some vertex.color
-          | _ -> acc)
-        colors None
-    in
-    let final_var_to_reg =
-      VSetColor.fold
-        (fun vertex acc ->
-          let assigned_reg =
-            match vertex.reg with
-            | Rin -> Rin
-            | Rout -> Rout
-            | _ ->
-                if Some vertex.color = rin_color then Rin
-                else if Some vertex.color = rout_color then Rout
-                else RVar vertex.color
-          in
-          RMap.add vertex.reg assigned_reg acc)
-        colors RMap.empty
-    in
-    let colored_cfg = color_cfg df_risc_cfg final_var_to_reg in
-    let spilled_cfg = spill_cfg colored_cfg spilled_regs in
-    (spilled_cfg, final_var_to_reg)
+    let usable_regs = max_reg - 4 in
+    if usable_regs <= 0 then
+      let regs_to_spill =
+        RSet.filter
+          (function Rin | Rout | Ra | Rb -> false | _ -> true)
+          (registers_in_cfg df_risc_cfg)
+      in
+      let final_color_map =
+        RMap.empty
+        |> RMap.add Rin Rin
+        |> RMap.add Rout Rout
+        |> RMap.add Ra Ra
+        |> RMap.add Rb Rb
+      in
+      let spilled_cfg = spill_cfg risc_cfg regs_to_spill in
+      (spilled_cfg, final_color_map, regs_to_spill)
+    else
+      let base_graph, extend_reg_map =
+        initialize_interference_graph df_risc_cfg var_to_reg
+      in
+      let interference_graph = build_with_liveness df_risc_cfg base_graph in
+      let cost_map = compute_cost_map df_risc_cfg in
+      let vertex_by_degree, vertex_by_cost, vertex_by_color =
+        RMap.fold
+          (fun reg neighbors (degree_set, cost_set, color_set) ->
+            let degree = RSet.cardinal neighbors in
+            let cost =
+              match RMap.find_opt reg cost_map with
+              | Some c -> float_of_int c /. float_of_int degree
+              | None -> 0.0
+            in
+            let vertex = { reg; degree; cost; color = -1 } in
+            ( VSetDegree.add vertex degree_set,
+              VSetCost.add vertex cost_set,
+              VSetColor.add vertex color_set ))
+          interference_graph
+          (VSetDegree.empty, VSetCost.empty, VSetColor.empty)
+      in
+      let colors, spilled_regs =
+        push_by_degree interference_graph (VertexStack.create ())
+          vertex_by_degree vertex_by_cost vertex_by_color RSet.empty usable_regs
+          cost_map
+      in
+      let final_color_map =
+        VSetColor.fold
+          (fun vertex acc ->
+            if vertex.color < 0 then
+              raise (Failure "Invalid color produced by register allocator")
+            else RMap.add vertex.reg (RVar vertex.color) acc)
+          colors RMap.empty
+      in
+      let final_color_map =
+        RMap.add Rb Rb
+          (RMap.add Ra Ra
+             (RMap.add Rout Rout (RMap.add Rin Rin final_color_map)))
+      in
+      let colored_cfg = color_cfg risc_cfg final_color_map spilled_regs in
+      let spilled_cfg = spill_cfg colored_cfg spilled_regs in
+      (spilled_cfg, final_color_map, spilled_regs)

@@ -7,7 +7,7 @@ module SMap = Mini_Modules.SMap
 
 type reg = Rin | Rout | Ra | Rb | RVar of int
 
-(* A mapping from variable names to registers *)
+(* Maps variable names to registers *)
 type var_to_reg = reg SMap.t
 
 module RSet = Set.Make (struct
@@ -32,35 +32,38 @@ type instruction =
   | Jump of string
   | CJump of reg * string * string
 
-(* Code is a mapping from labels to lists of instructions *)
+(* A RISC code is a mapping from labels to lists of instructions *)
 type code = instruction list SMap.t
 
-(* Helper function to generate and control fresh registers *)
 let next_reg = ref (-1)
 
+(** Returns a fresh register *)
 let fresh_reg () =
   incr next_reg;
   RVar !next_reg
 
+(** Returns the current checkpoint for the register creator *)
 let reg_allocator_checkpoint () = !next_reg
-let reset_reg_allocator checkpoint = next_reg := checkpoint
+(** Resets the register allocator to a specific checkpoint *)
+let reset_reg_allocator (checkpoint: int) = next_reg := checkpoint
 
-(* Helper function to choose the result register *)
+(* Choose the result register checking if a target is available, 
+  or if a temporary register is avaiable. Otherwise, it creates a new one *)
 let choose_result_reg (target_reg : reg option) (temp_regs : reg list) : reg =
   match (target_reg, temp_regs) with
   | Some reg, _ -> reg
   | None, reg :: _ -> reg
   | None, [] -> fresh_reg ()
 
-(* Helper function to remove a reserved register from the list of temporary registers *)
+(** Removes a reserved register from the list of temporary registers *)
 let available_temp_regs (reserved_reg : reg) (temp_regs : reg list) : reg list =
   List.filter (fun reg -> reg <> reserved_reg) temp_regs
 
-(* Helper function to create the initial register map for input and output variables *)
+(** Initializes the register map, associatig "in" and "out" to the input and output variables *)
 let initial_reg_map (input_var : string) (output_var : string) : var_to_reg =
   SMap.add output_var Rout (SMap.add input_var Rin SMap.empty)
 
-(* Recursive function that translate arithmetic expressions *)
+(** Translate a generic arithmetic expression into a RISC instruction list *)
 let rec translate_aexpr (e : a_exp) (target_reg : reg option)
     (temp_regs : reg list) (reg_map : var_to_reg) : reg * instruction list =
   let result_reg = choose_result_reg target_reg temp_regs in
@@ -83,7 +86,7 @@ let rec translate_aexpr (e : a_exp) (target_reg : reg option)
         reg_map
   | Of_Bool _ -> raise (Error "of_bool not supported")
 
-(* Helper function that translates commutative arithmetic expressions *)
+(** Translates a commutative binary operation into RISC instructions, exploiting the commutativity *)  
 and translate_commutative_aexpr (brop : brop) (biop : biop) (a1 : a_exp)
     (a2 : a_exp) (target_reg : reg option) (temp_regs : reg list)
     (reg_map : var_to_reg) : reg * instruction list =
@@ -147,7 +150,7 @@ and translate_commutative_aexpr (brop : brop) (biop : biop) (a1 : a_exp)
       in
       (result_reg, code1 @ code2 @ [ Brop (brop, t1, result_reg, result_reg) ])
 
-(* Helper function to translate subtraction of arithmetic expressions *)
+(** Translate a subtraction of generic arithmetic expressions *)
 and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
     (a1 : a_exp) (a2 : a_exp) (reg_map : var_to_reg) : reg * instruction list =
   let result_reg = choose_result_reg target_reg temp_regs in
@@ -233,7 +236,7 @@ and translate_minus_aexpr (target_reg : reg option) (temp_regs : reg list)
       in
       (result_reg, code1 @ code2 @ [ Brop (Sub, t1, result_reg, result_reg) ])
 
-(* Recursive function that translate boolean expressions *)
+(** Translate a generic boolean expression into a RISC instruction list *)
 let rec translate_bexpr (bexp : b_exp) (target_reg : reg option)
     (temp_regs : reg list) (reg_map : var_to_reg) : reg * instruction list =
   let result_reg = choose_result_reg target_reg temp_regs in
@@ -357,7 +360,7 @@ let rec translate_bexpr (bexp : b_exp) (target_reg : reg option)
           ( result_reg,
             code1 @ code2 @ [ Brop (Less, t1, result_reg, result_reg) ] ))
 
-(* Function that translates a list of statements into a list of RISC instructions *)
+(* Translates a list of statements into a list of RISC instructions *)
 let translate_stmts (stmts : statement list) (temp_regs : reg list)
     (guard_reg : reg) (reg_map : var_to_reg) : instruction list * var_to_reg =
   let rev_instruction_list, final_reg_map =
@@ -392,6 +395,8 @@ let translate_stmts (stmts : statement list) (temp_regs : reg list)
   in
   (List.concat (List.rev rev_instruction_list), final_reg_map)
 
+
+(** Finds the register defined by an instruction, if any *)
 let find_defined_reg (instr : instruction) : reg option =
   match instr with
   | Nop | Jump _ | Store _ | CJump _ -> None
@@ -402,6 +407,7 @@ let find_defined_reg (instr : instruction) : reg option =
   | LoadI (_, r) ->
       Some r
 
+(** Finds the set of registers used by a RISC instruction *)
 let find_used_regs (instr : instruction) : reg_set =
   match instr with
   | Nop | Jump _ | LoadI _ -> RSet.empty
@@ -409,6 +415,7 @@ let find_used_regs (instr : instruction) : reg_set =
       RSet.singleton r1
   | Brop (_, r1, r2, _) | Store (r1, r2) -> RSet.of_list [ r1; r2 ]
 
+(** Finds the set of registers used and defined by a list of RISC instructions *)
 let find_used_defined_regs (instrs : instruction list) : reg_set * reg_set =
   List.fold_left
     (fun (used_regs, def_regs) instr ->

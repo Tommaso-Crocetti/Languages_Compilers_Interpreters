@@ -1,5 +1,7 @@
 open Mini_CFG
 
+(** Compute the fixpoint of the dataflow analysis by propagating local updates,
+    exploiting a worklist-based algorithm *)
 let rec visit (cfg : 'node generic_cfg) (working_list : int list)
     (extract_fact : 'node -> 'set * 'set)
     (local_update : 'node generic_cfg -> int -> 'set * 'set)

@@ -4,29 +4,31 @@ open Mini_CFG
 
 exception Error of string
 
+(** Statements are valid operations that can be contained in a control flow graph *)
 type statement = Skip | Assign of string * a_exp | Guard of b_exp
+(** A control flow graph is a generic graph where nodes are associated to lists of statements *)
 type cfg = statement list generic_cfg
 
-(* Returns fresh node Id *)
+(* Returns a fresh node Id *)
 let fresh_id =
   let next = ref (-1) in
   fun () ->
     incr next;
     !next
 
-(* Helper functions that retrives the next node in the cfg *)
+(* Retrieve the next available node Id in the cfg *)
 let next_node_id (g : cfg) : int =
   match List.rev (IMap.bindings g.nodes) with
   | (node_id, _) :: _ -> node_id + 1
   | [] -> 0
 
-(* Helper function to add a block to the CFG *)
+(* Add a maximal block to the CFG *)
 let add_block (g : cfg) (stmts : statement list) : cfg * int =
   let node_id = next_node_id g in
   let g = add_node g node_id stmts in
   ({ g with final = [ node_id ] }, node_id)
 
-(* Helper backpatch function *)
+(* Connects pending nodes to a destination node *)
 let connect_pending_node (g : cfg) (src : int) (dst : int) : cfg =
   if src = dst then g
   else
@@ -49,8 +51,12 @@ let build_cfg (p : program) : cfg =
       all_vars;
     }
   in
-  (* Recursive function to process a command and incrementally update the CFG,
-	according also to the pending statements and the last seen command *)
+  (* Recursive function to process a command and incrementally update the CFG.
+     The accumulator carries:
+     - g: the partial CFG created so far
+     - stmts: the list of statements that still belong to the current maximal block
+     - last_command: the token produced by the last syntactic construct (used to avoid
+       backpatching from an ELSE branch into itself). *)
   let rec visit (c : command) (g : cfg) (stmts : statement list)
       (last_command : token) : cfg * statement list * token =
     match c with
@@ -66,17 +72,23 @@ let build_cfg (p : program) : cfg =
         let g, stmts, prev_command = visit c1 g stmts last_command in
         let g, stmts2, prev_command = visit c2 g stmts prev_command in
         (g, stmts2, prev_command)
-    (* Process an if statement, creating a new node with pending statements + guard, 
-		then recursively processing the branches *)
+    (* Process an if statement.
+       1. Close the block that leads to the guard (pending statements + guard).
+       2. Backpatch every predecessor that was waiting for a destination (unless we
+          are inside the ELSE branch).
+       3. Recursively translate the then/else commands, remembering their entry nodes.
+       4. If a branch leaves trailing statements, close them in a dedicated node and
+          backpatch the corresponding predecessors.
+       5. Finally, connect the guard node to the entry nodes of both branches. *)
     | If (b, c1, c2) ->
-        (* Retrieve the previous final nodes *)
+        (* The previous final nodes are the predecessors that must reach the guard. *)
         let previous_final_nodes = g.final in
         let pending_stmts = match stmts with [ Skip ] -> [] | _ -> stmts in
-        (* Add the guard statement to the pending statements, creating a new node *)
+        (* Add the guard statement to the pending statements, creating the guard node. *)
         let g', new_final_node =
           add_block g (List.rev (Guard b :: pending_stmts))
         in
-        (* Avoid backpatching if the last command is ELSE *)
+        (* Backpatch predecessors into the guard unless we just closed the ELSE branch. *)
         let g' =
           if last_command <> ELSE then
             List.fold_left
@@ -87,13 +99,13 @@ let build_cfg (p : program) : cfg =
         in
         (* Compute the entry node for the then branch *)
         let then_entry_node = next_node_id g' in
-        (* Process the then branch *)
+        (* Translate the THEN branch from a clean slate. *)
         let g1, then_stmts, previous_command = visit c1 g' [] last_command in
-        (* Handle of the then pending statements *)
+        (* Flush the trailing THEN statements (if any) in their own block. *)
         let then_stmts =
           match then_stmts with [ Skip ] -> [] | _ -> then_stmts
         in
-        (* Retrieve the previous final nodes of the then branch *)
+        (* Backpatch predecessors of the THEN branch into the freshly closed block. *)
         let then_previous_final_nodes = g1.final in
         let g1' =
           if then_stmts <> [] then
@@ -105,21 +117,21 @@ let build_cfg (p : program) : cfg =
               (fun acc node_id ->
                 connect_pending_node acc node_id then_join_node)
               g1'' then_previous_final_nodes
-            (* Handle the case where there are no statements in the then branch *)
+            (* Empty THEN branch: add an explicit skip so that backpatching has a target. *)
           else if then_previous_final_nodes = [ new_final_node ] then
             fst (add_block g1 [ Skip ])
           (* If the then branch is not empty and has no pending statements, it is correct *)
             else g1
         in
-        (* Retrieve the final nodes of the then branch *)
+        (* Cache the THEN final nodes: they are still alive while we visit the ELSE branch. *)
         let then_final_nodes = g1'.final in
-        (* Retrieve the entry node for the else branch *)
+        (* The ELSE branch starts at the next available node id. *)
         let else_entry_node = next_node_id g1' in
-        (* Process the else branch *)
+        (* Translate the ELSE branch; the in-progress CFG cannot keep the THEN finals. *)
         let g2, else_stmts, previous_command =
           visit c2 { g1' with final = [] } [] last_command
         in
-        (* Handle the else pending statements *)
+        (* Flush the trailing ELSE statements if needed, similar to the THEN branch. *)
         let else_stmts =
           match else_stmts with [ Skip ] -> [] | _ -> else_stmts
         in
@@ -137,30 +149,31 @@ let build_cfg (p : program) : cfg =
                 if List.mem node_id then_final_nodes then acc
                 else connect_pending_node acc node_id else_final_node)
               g2'' else_previous_final_nodes
-            (* Handle the case where there are no statements in the else branch *)
+            (* Empty ELSE branch: same skip injection to keep the graph well formed. *)
           else if else_previous_final_nodes = then_final_nodes then
             fst (add_block g2 [ Skip ])
           (* If the else branch is not empty and has no pending statements, it is correct *)
             else g2
         in
         let else_final_nodes = g2'.final in
-        (* Connect the guard node to the entry nodes of the then and else branches *)
+        (* Guard node branches to the entry nodes of the THEN and ELSE subgraphs. *)
         let g3 =
           add_edge g2' new_final_node (Pair (then_entry_node, else_entry_node))
         in
-        (* The final resulting node is the concatenation of all the branches final nodes *)
+        (* The CFG resulting from the IF has, as final nodes, the union of both branches. *)
         let g_f = { g3 with final = then_final_nodes @ else_final_nodes } in
         (g_f, [ Skip ], previous_command)
-    (* Process a while statement, creating a new node with pending statements,
-		a specfic node for the guard, then recursively processing the body *)
+    (* Process a while statement.
+       As with IF, we keep track of pending statements on each side so that we can
+       close blocks and backpatch predecessors only when their destination is known. *)
     | While (b, c) ->
-        (* Retrieve the previous final nodes *)
+        (* Final nodes prior to the loop head must be connected to the pre-guard block. *)
         let previous_final_nodes = g.final in
-        (* If there are no pending statements, it is necessary to create a skip statement *)
+        (* Ensure the pre-guard block is never empty, otherwise backpatching would fail. *)
         let pre_guard_stmts = if stmts = [] then [ Skip ] else List.rev stmts in
-        (* Create a new node for the pre-guard statements *)
+        (* Close the block immediately before the guard. *)
         let g_pre, pre_guard_node = add_block g pre_guard_stmts in
-        (* Avoid backpatching if the last command is ELSE *)
+        (* Don't backpatch if we just returned from an ELSE: those predecessors already point elsewhere. *)
         let g' =
           if last_command <> ELSE then
             List.fold_left
@@ -169,18 +182,18 @@ let build_cfg (p : program) : cfg =
               g_pre previous_final_nodes
           else g_pre
         in
-        (* Add the guard statement node *)
+        (* Emit the guard node itself (it only contains the guard evaluation). *)
         let g', guard_node = add_block g' [ Guard b ] in
-        (* Connect the pre-guard node to the guard node *)
+        (* Link the pre-guard block to the guard. *)
         let g_guard = add_edge g' pre_guard_node (Single guard_node) in
-        (* Process the body of the while loop *)
+        (* Translate the body starting from a fresh entry node. *)
         let body_entry_node = next_node_id g_guard in
         let g_while, body_stmts, previous_command =
           visit c g_guard [] last_command
         in
         let body_final_nodes = g_while.final in
         let g_while =
-          (* Handle the body pending statements *)
+          (* If the body leaves trailing statements, close them in a dedicated block. *)
           if body_stmts <> [ Skip ] then
             let g_body, body_join_node =
               add_block g_while (List.rev body_stmts)
@@ -190,14 +203,15 @@ let build_cfg (p : program) : cfg =
               (fun acc node_id ->
                 connect_pending_node acc node_id body_join_node)
               g_body body_final_nodes
-            (* Handle the case where there are no statements in the body *)
+            (* Empty body: add a skip so that the backedge has a well-defined target. *)
           else if body_final_nodes = [ guard_node ] then
             fst (add_block g_while [ Skip ])
           (* If the body is not empty and has no pending statements, it is correct *)
             else g_while
         in
-        (* Connect the guard node to the body initial node and (temporarily) to itself,
-			as the following node is still not defined *)
+        (* Close the loop: the guard points to the body entry on success and to itself
+           (temporarily) for the failure branch. The failure successor will be updated
+           by the caller once the following command is known. *)
         let g1 =
           add_edge g_while guard_node (Pair (body_entry_node, guard_node))
         in
@@ -225,6 +239,7 @@ let build_cfg (p : program) : cfg =
       cfg' pending_final_nodes
   else cfg
 
+(** Finds all variables that are defined in a list of statements *)
 let find_defined_vars (stmts : statement list) : var_set =
   List.fold_left
     (fun acc stmt ->

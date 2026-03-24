@@ -6,10 +6,12 @@ exception Error of string
 
 module SMap = Mini_RISC.SMap
 
+(** A RISC CFG is a generic CFG where nodes are associated to lists of RISC instructions *)
 type risc_cfg = instruction list generic_cfg
 
-(* Main function, translates a CFG to a RISC CFG by traversing the original one *)
+(** Turns a CFG to a RISC CFG by translating the list of maximal statements of the original CFG *)
 let build_risc_cfg (cfg : cfg) : risc_cfg * var_to_reg * reg =
+  (** First, build the initial register map, that maps each variable to a register *)
   let initial_reg_map = initial_reg_map cfg.input_var cfg.output_var in
   let all_vars_reg_map =
     SSet.fold
@@ -17,8 +19,10 @@ let build_risc_cfg (cfg : cfg) : risc_cfg * var_to_reg * reg =
         if SMap.mem var acc then acc else SMap.add var (fresh_reg ()) acc)
       cfg.all_vars initial_reg_map
   in
+  (** Then, allocate temporary registers for the guard and other temporary computations *)
   let guard_reg = fresh_reg () in
   let other_temp_reg = fresh_reg () in
+  (** Create a checkpoint for the register allocator, allowing register reuse *)
   let temp_checkpoint = reg_allocator_checkpoint () in
   let temp_regs = [ guard_reg; other_temp_reg ] in
   let risc_nodes =
@@ -43,13 +47,16 @@ let build_risc_cfg (cfg : cfg) : risc_cfg * var_to_reg * reg =
     all_vars_reg_map,
     guard_reg )
 
-(* Helper function that generates the label for a node Id *)
+(** Generates the RISC label for a node Id *)
 let string_of_label (node_id : int) : string =
   if node_id = 0 then "main" else Printf.sprintf "l%d" node_id
 
-(* Helper function that appends a jump instruction representing the outgoing edge of the node *)
-let append_jump (guard_reg : reg) (cfg : risc_cfg) (node_id : int)
-    (instrs : instruction list) : instruction list =
+(** Appends a jump instruction representing the outgoing edge of the node:
+  - Single outgoing edge: append a unconditional jump
+  - Pair of outgoing edges: append a conditional jump based on the guard register
+ *)
+let append_jump (guard_reg : reg) (spilled_regs : reg_set) (cfg : risc_cfg)
+    (node_id : int) (instrs : instruction list) : instruction list =
   match IMap.find_opt node_id cfg.edges with
   (* If there is no outgoing edge, the final node has been reached *)
   | None -> instrs
@@ -58,23 +65,39 @@ let append_jump (guard_reg : reg) (cfg : risc_cfg) (node_id : int)
   (* If there is a pair of outgoing edges,
   append a conditional jump based on the guard register*)
   | Some (Pair (left_node, right_node)) ->
-      instrs
+      let guard_load, guard_operand =
+        if RSet.mem guard_reg spilled_regs then
+          match guard_reg with
+          | RVar id ->
+              ( [ LoadI (id, Ra); Load (Ra, Ra) ], Ra )
+          | _ -> ([], guard_reg)
+        else ([], guard_reg)
+      in
+      instrs @ guard_load
       @ [
           CJump
-            (guard_reg, string_of_label left_node, string_of_label right_node);
+            ( guard_operand,
+              string_of_label left_node,
+              string_of_label right_node );
         ]
 
-let risc_cfg_with_jumps (guard_reg : reg) (risc_cfg : risc_cfg) : risc_cfg =
+(** Given a RISC CFG, appends jump instructions at the end of the block, 
+  representing the node outgoing edges *)
+let risc_cfg_with_jumps ?(spilled_regs = RSet.empty) (guard_reg : reg)
+    (risc_cfg : risc_cfg) : risc_cfg =
   let nodes_with_jumps =
     IMap.mapi
-      (fun node_id instrs -> append_jump guard_reg risc_cfg node_id instrs)
+      (fun node_id instrs ->
+        append_jump guard_reg spilled_regs risc_cfg node_id instrs)
       risc_cfg.nodes
   in
   { risc_cfg with nodes = nodes_with_jumps }
 
-let risc_cfg_to_code (string_of_instruction : instruction -> string)
-    (guard_reg : reg) (cfg : risc_cfg) : string =
-  let cfg = risc_cfg_with_jumps guard_reg cfg in
+(** Converts a RISC CFG into a RISC valid program *)
+let risc_cfg_to_code ?(spilled_regs = RSet.empty)
+    (string_of_instruction : instruction -> string) (guard_reg : reg)
+    (cfg : risc_cfg) : string =
+  let cfg = risc_cfg_with_jumps ~spilled_regs guard_reg cfg in
   List.fold_left
     (fun acc (node_id, instrs) ->
       let label = string_of_label node_id in

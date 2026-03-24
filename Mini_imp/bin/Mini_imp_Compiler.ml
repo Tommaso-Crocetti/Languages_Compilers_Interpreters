@@ -6,10 +6,11 @@ open Mini_imp_Lib.Mini_RISC
 open Mini_imp_Lib.Mini_RISC_CFG
 open Mini_imp_Lib.Mini_imp_DefVars
 open Mini_imp_Lib.Mini_RISC_LiveRegs
+open Mini_imp_Lib.Mini_RISC_RegAlloc
 open Mini_imp_Lib.Mini_imp_Printer
-
+(** pass the cfg with jumps so that it is colored as well *)
 let usage =
-	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] [--print-liveness] <input.mimp> <output.risc>"
+	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] [--print-liveness] <input.mimp> <output.risc> <max-regs>\n"
 
 let parse_program (input_file : string) =
 	let ic = open_in input_file in
@@ -24,6 +25,7 @@ let compile_file
   ~(print_liveness : bool)
 	~(input_file : string)
 	~(output_file : string)
+	~(max_regs : int)
 	: unit =
 	let program = parse_program input_file in
 	let cfg = build_cfg program in
@@ -35,17 +37,31 @@ let compile_file
 		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
 	);
   let risc_cfg, all_vars_reg_map, guard_reg = build_risc_cfg cfg in
+  let df_risc_cfg = build_dataflow_risc_cfg risc_cfg guard_reg in
 (* Printf.printf "Final register mapping:\n";
   SMap.iter (fun var reg -> Printf.printf "  %s -> %s\n" var (string_of_risc_reg reg)) all_vars_reg_map;
-*)  if print_liveness then (
-    let df_risc_cfg = build_dataflow_risc_cfg risc_cfg guard_reg in
+  *)  if print_liveness then (
     let liveness_info = liveness_global_update df_risc_cfg in
-    Printf.printf "Performing liveness analysis...\n";
-    print_in_out_regs liveness_info;
+  Printf.printf "Performing liveness analysis...\n";
+  print_in_out_regs liveness_info;
   );
-	let risc_code = risc_cfg_to_code string_of_risc_instruction guard_reg risc_cfg in
+	let _risc_code = risc_cfg_to_code string_of_risc_instruction guard_reg risc_cfg in
+  let spilled_risc_cfg, final_color_map, spilled_regs =
+    global_allocation df_risc_cfg risc_cfg max_regs all_vars_reg_map
+  in
+  let guard_reg_for_output =
+    if RSet.mem guard_reg spilled_regs then guard_reg
+    else
+      match RMap.find_opt guard_reg final_color_map with
+      | Some reg -> reg
+      | None -> guard_reg
+  in
+  let final_risc_code =
+    risc_cfg_to_code ~spilled_regs string_of_risc_instruction guard_reg_for_output
+      spilled_risc_cfg
+  in
 	let oc = open_out output_file in
-	output_string oc risc_code;
+	output_string oc final_risc_code;
 	close_out oc
 
 let () =
@@ -65,14 +81,16 @@ let () =
 	Arg.parse specs (fun arg -> positional := arg :: !positional) usage;
 
 	match List.rev !positional with
-	| [input_file; output_file] ->
+	| [input_file; output_file; max_regs_str] ->
+    let max_regs = int_of_string max_regs_str in
     (try
 			compile_file
         ~show_cfg:!show_cfg
         ~check_undefined:!check_undefined
         ~print_liveness:!print_liveness
         ~input_file
-        ~output_file;
+        ~output_file
+        ~max_regs;
       Printf.printf "Compiled %s -> %s\n" input_file output_file
 			with
 			  | Sys_error msg

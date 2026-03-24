@@ -1,0 +1,53 @@
+main:
+	copy in => r0
+	LoadI 0 => r4
+	less r0 r4 => r4
+	CJump r4 l1 l2
+
+l1:
+	LoadI 2 => r5
+	sub r5 r0 => r5
+	multI in 2 => r6
+	addI in 3 => r4
+	subI r4 2 => r4
+	mult r6 r4 => r4
+	add r5 r4 => r4
+	addI in 2 => r3
+	subI r3 3 => r3
+	add r4 r3 => r3
+	Jump l2
+
+l2:
+	LoadI 1 => r4
+	less r0 r4 => r4
+	CJump r4 l3 l4
+
+l3:
+	LoadI 1 => r2
+	Jump l4
+
+l4:
+	addI r0 1 => r1
+	Jump l5
+
+l5:
+	less r0 r1 => r5
+	less r1 r0 => r6
+	or r4 r6 => r4
+	CJump r4 l6 l9
+
+l6:
+	less r0 r1 => r4
+	CJump r4 l7 l8
+
+l7:
+	sub r1 r0 => r1
+	Jump l5
+
+l8:
+	sub r0 r1 => r0
+	Jump l5
+
+l9:
+	copy r0 => out
+

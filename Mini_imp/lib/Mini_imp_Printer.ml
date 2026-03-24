@@ -139,7 +139,7 @@ let string_of_risc_urop (urop : urop) : string =
 
 let string_of_risc_instruction (instr : instruction) : string =
   match instr with
-  | Nop -> "Nop"
+  | Nop -> "nop"
   | Brop (b, r1, r2, r3) ->
       Printf.sprintf "%s %s %s => %s" (string_of_risc_brop b)
         (string_of_risc_reg r1) (string_of_risc_reg r2) (string_of_risc_reg r3)
@@ -150,15 +150,15 @@ let string_of_risc_instruction (instr : instruction) : string =
       Printf.sprintf "%s %s => %s" (string_of_risc_urop u)
         (string_of_risc_reg r1) (string_of_risc_reg r2)
   | Load (r1, r2) ->
-      Printf.sprintf "Load %s => %s" (string_of_risc_reg r1)
+      Printf.sprintf "load %s => %s" (string_of_risc_reg r1)
         (string_of_risc_reg r2)
-  | LoadI (n, r) -> Printf.sprintf "LoadI %d => %s" n (string_of_risc_reg r)
+  | LoadI (n, r) -> Printf.sprintf "loadI %d => %s" n (string_of_risc_reg r)
   | Store (r1, r2) ->
-      Printf.sprintf "Store %s => %s" (string_of_risc_reg r1)
+      Printf.sprintf "store %s => %s" (string_of_risc_reg r1)
         (string_of_risc_reg r2)
-  | Jump l -> Printf.sprintf "Jump %s" l
+  | Jump l -> Printf.sprintf "jump %s" l
   | CJump (r, l1, l2) ->
-      Printf.sprintf "CJump %s %s %s" (string_of_risc_reg r) l1 l2
+      Printf.sprintf "cjump %s %s %s" (string_of_risc_reg r) l1 l2
 
 let risc_cfg_to_string (cfg : risc_cfg) : string =
   generic_cfg_to_string
