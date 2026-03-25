@@ -15,6 +15,3 @@ lib: [
 libexec: [
   "_build/install/default/lib/Mini_fun/Mini_fun.cmxs"
 ]
-bin: [
-  "_build/install/default/bin/Mini_fun.exe"
-]

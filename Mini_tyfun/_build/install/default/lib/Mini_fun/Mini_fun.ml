@@ -33,25 +33,6 @@ type runtime_value =
   | RecClosureV of var * var * term * env
 and env = runtime_value SMap.t
 
-let plus = Plus
-let minus = Minus 
-let times = Times
-
-let and_ = And
-let or_ = Or
-let minor = Minor
-
-let int_ n = Int n
-let bool_ b = Bool b
-let var x = Var x
-let fun_ x body = Fun (x, body)
-let app f arg = App (f, arg)
-let op o t1 t2 = Op (o, t1, t2)
-let not_ t = Not t
-let if_ c t e = If (c, t, e)
-let let_ x v b = Let (x, v, b)
-let letfun f x body b = LetFun (f, x, body, b)
-
 let rec eval_t (t: term) (env: env) : runtime_value =
   match t with
   | Int n -> IntV n

@@ -1,6 +1,6 @@
 (lang dune 3.21)
 (name Mini_fun)
-(sections (lib .) (libexec .) (bin ../../bin))
+(sections (lib .) (libexec .))
 (files
  (lib
   (META
@@ -15,8 +15,7 @@
    mini_fun.cmti
    mini_fun.cmx
    opam))
- (libexec (Mini_fun.cmxs))
- (bin (Mini_fun.exe)))
+ (libexec (Mini_fun.cmxs)))
 (library
  (name Mini_fun)
  (kind normal)

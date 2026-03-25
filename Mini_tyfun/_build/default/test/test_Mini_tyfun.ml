@@ -7,7 +7,7 @@ let test_inputs = [0; 1; 2; 3; 5; 10; -1; -5]
 let execute prog n =
   Mini_fun.extract_int
     (Mini_fun.compute
-       (Mini_fun.app (Mini_tyfun.drop_types prog) (Mini_fun.int_ n)))
+       (Mini_fun.App (Mini_tyfun.drop_types prog, Mini_fun.Int n)))
 
 let expected_outputs = [
 	("01_identity.mtfun", [0; 1; 2; 3; 5; 10; -1; -5]);

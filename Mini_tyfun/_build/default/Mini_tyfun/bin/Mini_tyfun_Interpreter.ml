@@ -72,7 +72,7 @@ let () =
   let show_ast = ref false in
   let filename = ref None in
   let anon_arg arg = filename := Some arg in
-  let usage = "Usage: mini_tyfun [--tokens] [--ast] <program.mtfun>" in
+  let usage = "Usage: Mini_tyfun_Interpreter [--tokens] [--ast] <program.mtfun>" in
   let specs =
     [
       ("--tokens", Arg.Set show_tokens, "Print lexer token stream before parsing");

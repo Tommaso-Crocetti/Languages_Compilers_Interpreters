@@ -2,4 +2,6 @@
  (public_name Mini_fun)
  (package Mini_fun)
  (name main)
- (libraries Mini_fun))
+ (libraries Mini_fun)
+ ; Disable the Mini_fun CLI; keep only the typed interpreter runnable.
+ (enabled_if false))

@@ -15,8 +15,4 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_2a08f5_output
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamldep.opt.exe -modules -impl bin/Mini_imp_Compiler.ml) > _build/default/bin/.Mini_imp_Compiler.eobjs/dune__exe__Mini_imp_Compiler.impl.d
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -bin-annot -bin-annot-occurrences -I bin/.Mini_imp_Compiler.eobjs/byte -I lib/.Mini_imp_Lib.objs/byte -cmi-file bin/.Mini_imp_Compiler.eobjs/byte/dune__exe__Mini_imp_Compiler.cmi -no-alias-deps -opaque -open Dune__exe -o bin/.Mini_imp_Compiler.eobjs/byte/dune__exe__Mini_imp_Compiler.cmo -c -impl bin/Mini_imp_Compiler.ml)
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -o bin/Mini_imp_Compiler.bc lib/Mini_imp_Lib.cma bin/.Mini_imp_Compiler.eobjs/byte/dune__exe.cmo bin/.Mini_imp_Compiler.eobjs/byte/dune__exe__Mini_imp_Compiler.cmo)
-$ (cd _build/default && C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -short-paths -keep-locs -warn-error +a -g -o bin/Mini_imp_Compiler.exe -output-complete-exe lib/Mini_imp_Lib.cma bin/.Mini_imp_Compiler.eobjs/byte/dune__exe.cmo bin/.Mini_imp_Compiler.eobjs/byte/dune__exe__Mini_imp_Compiler.cmo)
+$ C:\Users\tomma\AppData\Local\opam\default\bin\ocamlc.opt.exe -config > C:\Users\tomma\AppData\Local\Temp\dune_39985b_output
