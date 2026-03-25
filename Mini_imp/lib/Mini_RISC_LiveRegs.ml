@@ -20,23 +20,22 @@ type dataflow_risc_cfg = dataflow_risc_node generic_cfg
 
 (** Builds the initial dataflow RISC CFG from a RISC control flow graph, by assigning the
     bottom of the CPO (the empty set of registers) to each in_regs and out_regs *)
-let build_dataflow_risc_cfg (cfg : risc_cfg) (guard_reg : reg) :
+let build_dataflow_risc_cfg (risc_cfg : risc_cfg) (guard_reg : reg) :
     dataflow_risc_cfg =
-  let cfg_with_jumps = risc_cfg_with_jumps guard_reg cfg in
   let nodes =
     IMap.map
       (fun instructions ->
         { instructions; in_regs = RSet.empty; out_regs = RSet.empty })
-      cfg_with_jumps.nodes
+      risc_cfg.nodes
   in
   {
     nodes;
-    edges = cfg_with_jumps.edges;
-    initial = cfg_with_jumps.initial;
-    final = cfg_with_jumps.final;
-    all_vars = cfg_with_jumps.all_vars;
-    input_var = cfg_with_jumps.input_var;
-    output_var = cfg_with_jumps.output_var;
+    edges = risc_cfg.edges;
+    initial = risc_cfg.initial;
+    final = risc_cfg.final;
+    all_vars = risc_cfg.all_vars;
+    input_var = risc_cfg.input_var;
+    output_var = risc_cfg.output_var;
   }
 
 (** Performs a local update, redefining the defined in_regs and out_regs of a

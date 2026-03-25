@@ -8,109 +8,91 @@ open Mini_imp_Lib.Mini_imp_DefVars
 open Mini_imp_Lib.Mini_RISC_LiveRegs
 open Mini_imp_Lib.Mini_RISC_RegAlloc
 open Mini_imp_Lib.Mini_imp_Printer
-(** pass the cfg with jumps so that it is colored as well *)
+
 let usage =
-	"Usage: Mini_imp_compiler [--show-cfg] [--check-undefined] [--print-liveness] <input.mimp> <output.risc> <max-regs>\n"
+  "Usage: Mini_imp_compiler [--show-cfg] [--def-vars] [--use-live] \
+   --max-regs <n>=4 <input.mimp> <output.risc>\n"
 
 let parse_program (input_file : string) =
-	let ic = open_in input_file in
+  let ic = open_in input_file in
   let lexbuf = Lexing.from_channel ic in
   let program = prg read lexbuf in
   close_in ic;
   program
 
-let compile_file
-  ~(show_cfg : bool)
-	~(check_undefined : bool)
-  ~(print_liveness : bool)
-	~(input_file : string)
-	~(output_file : string)
-	~(max_regs : int)
-	: unit =
-	let program = parse_program input_file in
-	let cfg = build_cfg program in
-  if show_cfg then (
-    Printf.printf "Generated CFG:\n%s\n" (cfg_to_string cfg);
-  );
-	if check_undefined then (
-		let _ = defined_analysis cfg in
-		Printf.printf "Static analysis completed. All variables are properly defined before use.\n";
-	);
+let compile_file ~(show_cfg : bool) ~(def_vars : bool) ~(use_live : bool)
+    ~(input_file : string) ~(output_file : string) ~(max_regs : int) : unit =
+  let program = parse_program input_file in
+  let cfg = build_cfg program in
+  if show_cfg then Printf.printf "Generated CFG:\n%s\n" (cfg_to_string cfg);
+  (if def_vars then
+     let _ = defined_analysis cfg in
+     Printf.printf
+       "Static analysis completed. All variables are properly defined before \
+        use.\n");
   let risc_cfg, all_vars_reg_map, guard_reg = build_risc_cfg cfg in
-  let df_risc_cfg = build_dataflow_risc_cfg risc_cfg guard_reg in
-(* Printf.printf "Final register mapping:\n";
-  SMap.iter (fun var reg -> Printf.printf "  %s -> %s\n" var (string_of_risc_reg reg)) all_vars_reg_map;
-  *)  if print_liveness then (
-    let liveness_info = liveness_global_update df_risc_cfg in
-  Printf.printf "Performing liveness analysis...\n";
-  print_in_out_regs liveness_info;
-  );
-	let _risc_code = risc_cfg_to_code string_of_risc_instruction guard_reg risc_cfg in
-  let spilled_risc_cfg, final_color_map, spilled_regs =
-    global_allocation df_risc_cfg risc_cfg max_regs all_vars_reg_map
+  let risc_cfg_with_jumps = risc_cfg_with_jumps guard_reg risc_cfg in
+  let df_risc_cfg = build_dataflow_risc_cfg risc_cfg_with_jumps guard_reg in
+  let df_risc_cfg =
+    if use_live then liveness_global_update df_risc_cfg else df_risc_cfg
   in
-  let guard_reg_for_output =
-    if RSet.mem guard_reg spilled_regs then guard_reg
-    else
-      match RMap.find_opt guard_reg final_color_map with
-      | Some reg -> reg
-      | None -> guard_reg
+  let colored_and_spilled_risc_cfg, final_color_map, spilled_regs =
+    global_allocation risc_cfg_with_jumps df_risc_cfg max_regs all_vars_reg_map
+      use_live
   in
   let final_risc_code =
-    risc_cfg_to_code ~spilled_regs string_of_risc_instruction guard_reg_for_output
-      spilled_risc_cfg
+    risc_cfg_to_code colored_and_spilled_risc_cfg string_of_risc_instruction
   in
-	let oc = open_out output_file in
-	output_string oc final_risc_code;
-	close_out oc
+  let oc = open_out output_file in
+  output_string oc final_risc_code;
+  close_out oc
 
 let () =
   let show_cfg = ref false in
-	let check_undefined = ref false in
-	let print_liveness = ref false in
-	let positional = ref [] in
+  let def_vars = ref false in
+  let use_live = ref false in
+  let positional = ref [] in
+  let max_regs = ref 4 in
 
-	let specs =
-		[
-      ("--show-cfg", Arg.Set show_cfg, "Print the generated CFG");
-      ("--check-undefined", Arg.Set check_undefined, "Enable undefined variable check");
-      ("--print-liveness", Arg.Set print_liveness, "Print liveness information");
+  let specs =
+    [
+      ("--show-cfg", Arg.Set show_cfg, "Print the generated MiniImp CFG");
+      ("--def-vars", Arg.Set def_vars, "Enable undefined variable check");
+      ("--use-live", Arg.Set use_live, "Use liveness information during register allocation");
+      ( "--max-regs",
+        Arg.Int
+          (fun n ->
+            if n < 4 then raise (Arg.Bad "--max-regs must be at least 4")
+            else max_regs := n),
+        "Set the register budget (>=4)" );
     ]
-	in
+  in
 
-	Arg.parse specs (fun arg -> positional := arg :: !positional) usage;
+  Arg.parse specs (fun arg -> positional := arg :: !positional) usage;
 
-	match List.rev !positional with
-	| [input_file; output_file; max_regs_str] ->
-    let max_regs = int_of_string max_regs_str in
-    (try
-			compile_file
-        ~show_cfg:!show_cfg
-        ~check_undefined:!check_undefined
-        ~print_liveness:!print_liveness
-        ~input_file
-        ~output_file
-        ~max_regs;
-      Printf.printf "Compiled %s -> %s\n" input_file output_file
-			with
-			  | Sys_error msg
-			  | Failure msg ->
-					 prerr_endline msg;
-					 exit 1
-        | Mini_imp_Lib.Mini_imp_Lexer.Error msg ->
-            prerr_endline ("Lexing error while reading " ^ input_file ^ ": " ^ msg);
-			  | Mini_imp_Lib.Mini_imp_Parser.Error ->
-					 prerr_endline "Parse error while reading MiniImp source file.";
-					 exit 1
-        | Mini_imp_Lib.Mini_imp_CFG.Error msg ->
-            prerr_endline ("CFG error: " ^ msg);
-        | Mini_imp_Lib.Mini_RISC.Error msg ->
-            prerr_endline ("RISC error: " ^ msg);
-			  | Mini_imp_Lib.Mini_RISC_CFG.Error msg ->
-					 prerr_endline ("RISC CFG error: " ^ msg);
-        | Mini_imp_Lib.Mini_imp_DefVars.Error msg ->
-            prerr_endline ("Defined variable analysis error: " ^ msg);
-					 exit 1)
-	| _ ->
-			prerr_endline usage;
-			exit 2
+  match List.rev !positional with
+  | [ input_file; output_file ] -> (
+      try
+        compile_file ~show_cfg:!show_cfg ~def_vars:!def_vars ~use_live:!use_live
+          ~input_file ~output_file ~max_regs:!max_regs;
+        Printf.printf "Compiled %s -> %s\n" input_file output_file
+      with
+      | Sys_error msg | Failure msg ->
+          prerr_endline msg;
+          exit 1
+      | Mini_imp_Lib.Mini_imp_Lexer.Error msg ->
+          prerr_endline ("Lexing error while reading " ^ input_file ^ ": " ^ msg)
+      | Mini_imp_Lib.Mini_imp_Parser.Error ->
+          prerr_endline "Parse error while reading MiniImp source file.";
+          exit 1
+      | Mini_imp_Lib.Mini_imp_CFG.Error msg ->
+          prerr_endline ("CFG error: " ^ msg)
+      | Mini_imp_Lib.Mini_RISC.Error msg -> prerr_endline ("RISC error: " ^ msg)
+      | Mini_imp_Lib.Mini_RISC_CFG.Error msg ->
+          prerr_endline ("RISC CFG error: " ^ msg)
+      | Mini_imp_Lib.Mini_imp_DefVars.Error msg ->
+          prerr_endline ("Defined variable analysis error: " ^ msg);
+          exit 1)
+  | _ ->
+      prerr_endline usage;
+      exit 2

@@ -55,7 +55,7 @@ let string_of_label (node_id : int) : string =
   - Single outgoing edge: append a unconditional jump
   - Pair of outgoing edges: append a conditional jump based on the guard register
  *)
-let append_jump (guard_reg : reg) (spilled_regs : reg_set) (cfg : risc_cfg)
+let append_jump (guard_reg : reg) (cfg : risc_cfg)
     (node_id : int) (instrs : instruction list) : instruction list =
   match IMap.find_opt node_id cfg.edges with
   (* If there is no outgoing edge, the final node has been reached *)
@@ -65,39 +65,24 @@ let append_jump (guard_reg : reg) (spilled_regs : reg_set) (cfg : risc_cfg)
   (* If there is a pair of outgoing edges,
   append a conditional jump based on the guard register*)
   | Some (Pair (left_node, right_node)) ->
-      let guard_load, guard_operand =
-        if RSet.mem guard_reg spilled_regs then
-          match guard_reg with
-          | RVar id ->
-              ( [ LoadI (id, Ra); Load (Ra, Ra) ], Ra )
-          | _ -> ([], guard_reg)
-        else ([], guard_reg)
-      in
-      instrs @ guard_load
-      @ [
-          CJump
-            ( guard_operand,
-              string_of_label left_node,
-              string_of_label right_node );
-        ]
+    instrs @ [ CJump (guard_reg, string_of_label left_node, string_of_label right_node) ]
 
 (** Given a RISC CFG, appends jump instructions at the end of the block, 
   representing the node outgoing edges *)
-let risc_cfg_with_jumps ?(spilled_regs = RSet.empty) (guard_reg : reg)
+let risc_cfg_with_jumps (guard_reg : reg)
     (risc_cfg : risc_cfg) : risc_cfg =
   let nodes_with_jumps =
     IMap.mapi
       (fun node_id instrs ->
-        append_jump guard_reg spilled_regs risc_cfg node_id instrs)
+        append_jump guard_reg risc_cfg node_id instrs)
       risc_cfg.nodes
   in
   { risc_cfg with nodes = nodes_with_jumps }
 
 (** Converts a RISC CFG into a RISC valid program *)
-let risc_cfg_to_code ?(spilled_regs = RSet.empty)
-    (string_of_instruction : instruction -> string) (guard_reg : reg)
-    (cfg : risc_cfg) : string =
-  let cfg = risc_cfg_with_jumps ~spilled_regs guard_reg cfg in
+let risc_cfg_to_code
+    (risc_cfg : risc_cfg) (string_of_instruction : instruction -> string)
+    : string =
   List.fold_left
     (fun acc (node_id, instrs) ->
       let label = string_of_label node_id in
@@ -105,6 +90,6 @@ let risc_cfg_to_code ?(spilled_regs = RSet.empty)
       ^ String.concat "\n"
           (List.map
              (fun instr -> "\t" ^ string_of_instruction instr)
-             (IMap.find node_id cfg.nodes))
+             (IMap.find node_id risc_cfg.nodes))
       ^ "\n" ^ "\n")
-    "" (IMap.bindings cfg.nodes)
+    "" (IMap.bindings risc_cfg.nodes)

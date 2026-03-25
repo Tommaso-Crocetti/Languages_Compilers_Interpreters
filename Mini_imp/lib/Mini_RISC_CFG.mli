@@ -16,12 +16,11 @@ val string_of_label : int -> string
   - Pair of outgoing edges: append a conditional jump based on the guard register
  *)
 val append_jump :
-  reg -> reg_set -> risc_cfg -> int -> instruction list -> instruction list
+  reg -> risc_cfg -> int -> instruction list -> instruction list
 (** Given a RISC CFG, appends jump instructions at the end of the block, 
   representing the node outgoing edges *)
 val risc_cfg_with_jumps :
-  ?spilled_regs:reg_set -> reg -> risc_cfg -> risc_cfg
+  reg -> risc_cfg -> risc_cfg
 (** Converts a RISC CFG into a RISC valid program *)
 val risc_cfg_to_code :
-  ?spilled_regs:reg_set ->
-  (instruction -> string) -> reg -> risc_cfg -> string
+   risc_cfg -> (instruction -> string) -> string
