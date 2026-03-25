@@ -1,3 +1,0 @@
-(test
- (name test_Mini_fun)
- (libraries Mini_fun))

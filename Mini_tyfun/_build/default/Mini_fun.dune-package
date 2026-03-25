@@ -1,0 +1,35 @@
+(lang dune 3.21)
+(name Mini_fun)
+(sections (lib .) (libexec .) (bin ../../bin))
+(files
+ (lib
+  (META
+   Mini_fun.a
+   Mini_fun.cma
+   Mini_fun.cmxa
+   Mini_fun.ml
+   Mini_fun.mli
+   dune-package
+   mini_fun.cmi
+   mini_fun.cmt
+   mini_fun.cmti
+   mini_fun.cmx
+   opam))
+ (libexec (Mini_fun.cmxs))
+ (bin (Mini_fun.exe)))
+(library
+ (name Mini_fun)
+ (kind normal)
+ (archives (byte Mini_fun.cma) (native Mini_fun.cmxa))
+ (plugins (byte Mini_fun.cma) (native Mini_fun.cmxs))
+ (native_archives Mini_fun.a)
+ (main_module_name Mini_fun)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name mini_fun)
+   (visibility public)
+   (source
+    (path Mini_fun)
+    (intf (path Mini_fun.mli))
+    (impl (path Mini_fun.ml))))))

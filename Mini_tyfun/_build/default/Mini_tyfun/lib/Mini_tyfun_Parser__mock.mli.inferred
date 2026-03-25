@@ -1,0 +1,37 @@
+type token =
+    VAR of string
+  | TIMES
+  | THEN
+  | RPAREN
+  | PLUS
+  | OR
+  | NOT
+  | MINUS
+  | MINOR
+  | LPAREN
+  | LETFUN
+  | LET
+  | INT_TYPE
+  | INT of int
+  | IN
+  | IF
+  | FUN_ARROW
+  | FUN
+  | EQUAL
+  | EOF
+  | ELSE
+  | COLON
+  | BOOL_TYPE
+  | BOOL of bool
+  | ARROW_TYPE
+  | AND
+val menhir_begin_marker : int
+val xv_prg : Mini_tyfun.term
+val xv_op_expr : Mini_tyfun.term
+val xv_int : int
+val xv_fun_type_atom : Mini_tyfun.fun_type
+val xv_fun_type : Mini_tyfun.fun_type
+val xv_expr : Mini_tyfun.term
+val xv_atom : Mini_tyfun.term
+val xv_app_expr : Mini_tyfun.term
+val menhir_end_marker : int

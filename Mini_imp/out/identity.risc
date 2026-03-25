@@ -1,0 +1,5 @@
+main:
+	copy in => out
+	copy out => in
+	copy in => out
+

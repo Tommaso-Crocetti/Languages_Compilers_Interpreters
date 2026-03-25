@@ -1,5 +1,6 @@
 (executable
- (public_name Mini_tyfun)
+ (public_name Mini_tyfun_interpreter)
  (package Mini_tyfun)
- (name main)
+ (name Mini_tyfun_Interpreter)
+ (modules Mini_tyfun_Interpreter)
  (libraries Mini_tyfun_Lib))

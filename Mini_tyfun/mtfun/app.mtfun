@@ -1,1 +1,0 @@
-letfun f x : int -> int -> int = fun y : int => x + y in fun x: int => f x x

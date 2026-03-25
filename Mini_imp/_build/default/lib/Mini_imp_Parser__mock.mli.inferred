@@ -1,0 +1,36 @@
+type token =
+    WITH
+  | WHILE
+  | VAR of string
+  | TIMES
+  | THEN
+  | SKIP
+  | RPAREN
+  | PLUS
+  | OUTPUT
+  | OR
+  | OF_BOOL
+  | NOT
+  | MINUS
+  | MINOR
+  | MAIN
+  | LPAREN
+  | INT of int
+  | INPUT
+  | IF
+  | EOF
+  | ELSE
+  | DO
+  | DEF
+  | CONCAT
+  | BOOL of bool
+  | ASSIGN
+  | AS
+  | AND
+val menhir_begin_marker : int
+val xv_prg : Mini_imp_AST.program
+val xv_int : int
+val xv_cmd : Mini_imp_AST.command
+val xv_b_exp : Mini_imp_AST.b_exp
+val xv_a_exp : Mini_imp_AST.a_exp
+val menhir_end_marker : int
